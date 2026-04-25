@@ -1,0 +1,162 @@
+name: Vacuum Arrival Automation
+version: "0.1.0"
+slug: vacuum_arrival_automation
+description: Arrival-aware vacuum automation with AppDaemon, history, learning, and dashboards
+url: https://github.com/example/vacuum_automation
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
+startup: application
+boot: auto
+init: false
+homeassistant_api: true
+hassio_api: true
+host_network: false
+map:
+  - config:rw
+options:
+  appdaemon_http:
+    url: http://127.0.0.1:5050
+  vacuum_entity: vacuum.robot_vacuum
+  notify_service: ""
+  dashboard_path: /lovelace/vacuum-automation
+  presence_entities: |
+    - person.resident_1
+  person_entity: person.resident_1
+  travel_person_entity: person.resident_1
+  waze_entity: sensor.travel_time_to_home
+  distance_entity: ""
+  home_zone: zone.home
+  travel_pause_zone: ""
+  travel_pause_after_hours: 24
+  dashboard_prefix: vacuum_automation
+  helper_prefix: vacuum_automation
+  state_helper: input_text.vacuum_automation_state
+  enabled_entity: input_boolean.vacuum_automation_enabled
+  learning_enabled_entity: input_boolean.vacuum_automation_learning_enabled
+  start_hour_entity: input_number.vacuum_automation_start_hour
+  end_hour_entity: input_number.vacuum_automation_end_hour
+  return_buffer_entity: input_number.vacuum_automation_return_buffer
+  fallback_speed_entity: input_number.vacuum_automation_fallback_speed
+  default_travel_time_entity: input_number.vacuum_automation_default_travel_time
+  home_override_enabled_entity: input_boolean.vacuum_automation_home_override_enabled
+  home_latitude_entity: input_number.vacuum_automation_home_latitude
+  home_longitude_entity: input_number.vacuum_automation_home_longitude
+  travel_pause_radius_entity: input_number.vacuum_automation_travel_pause_radius
+  max_distance_km_entity: input_number.vacuum_automation_max_distance_km
+  travel_mode_enabled_entity: input_boolean.vacuum_automation_travel_mode_enabled
+  start_notifications_enabled_entity: input_boolean.vacuum_automation_start_notifications_enabled
+  return_summary_enabled_entity: input_boolean.vacuum_automation_return_summary_enabled
+  storage_dir: /config/appdaemon/storage/vacuum_automation
+  max_history_entries: 1500
+  history_weeks: 8
+  learning_window: 6
+  start_hour: 8
+  end_hour: 22
+  check_interval_min: 30
+  monitor_interval_min: 5
+  return_buffer_min: 5
+  fallback_speed_kmh: 30
+  default_travel_time_min: 60
+  home_override_enabled: false
+  home_latitude: 52.52
+  home_longitude: 13.405
+  travel_pause_radius_km: 25
+  max_distance_km: 0
+  travel_mode_enabled: true
+  start_notifications_enabled: false
+  return_summary_enabled: true
+  generate_helper_package: true
+  generate_standard_dashboard: true
+  generate_mushroom_dashboard: true
+  rooms: |
+    - id: bad
+      name: Bad
+      segment_id: 1
+      interval_h: 24
+      weight: 1.4
+      duration_min: 15
+      enabled: true
+      icon: mdi:shower
+    - id: kueche
+      name: Kueche
+      segment_id: 2
+      interval_h: 48
+      weight: 1.2
+      duration_min: 12
+      enabled: true
+      icon: mdi:silverware-fork-knife
+    - id: wohnzimmer
+      name: Wohnzimmer
+      segment_id: 3
+      interval_h: 72
+      weight: 1.0
+      duration_min: 20
+      enabled: true
+      icon: mdi:sofa
+    - id: schlafzimmer
+      name: Schlafzimmer
+      segment_id: 4
+      interval_h: 72
+      weight: 1.0
+      duration_min: 18
+      enabled: true
+      icon: mdi:bed-king-outline
+schema:
+  appdaemon_http:
+    url: str
+  vacuum_entity: str
+  notify_service: str?
+  dashboard_path: str
+  presence_entities: str
+  person_entity: str
+  travel_person_entity: str
+  waze_entity: str?
+  distance_entity: str?
+  home_zone: str
+  travel_pause_zone: str?
+  travel_pause_after_hours: float
+  dashboard_prefix: str
+  helper_prefix: str
+  state_helper: str
+  enabled_entity: str
+  learning_enabled_entity: str
+  start_hour_entity: str
+  end_hour_entity: str
+  return_buffer_entity: str
+  fallback_speed_entity: str
+  default_travel_time_entity: str
+  home_override_enabled_entity: str
+  home_latitude_entity: str
+  home_longitude_entity: str
+  travel_pause_radius_entity: str
+  max_distance_km_entity: str
+  travel_mode_enabled_entity: str
+  start_notifications_enabled_entity: str
+  return_summary_enabled_entity: str
+  storage_dir: str
+  max_history_entries: int
+  history_weeks: int
+  learning_window: int
+  start_hour: int
+  end_hour: int
+  check_interval_min: int
+  monitor_interval_min: int
+  return_buffer_min: int
+  fallback_speed_kmh: float
+  default_travel_time_min: float
+  home_override_enabled: bool
+  home_latitude: float
+  home_longitude: float
+  travel_pause_radius_km: float
+  max_distance_km: float
+  travel_mode_enabled: bool
+  start_notifications_enabled: bool
+  return_summary_enabled: bool
+  generate_helper_package: bool
+  generate_standard_dashboard: bool
+  generate_mushroom_dashboard: bool
+  rooms: str

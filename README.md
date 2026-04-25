@@ -1,110 +1,120 @@
-# Saugroboter-Automatik mit Home Assistant
+# Vacuum Automation
 
-## Ziel
+Arrival-aware vacuum automation for Home Assistant based on the
+[`Tasshack/dreame-vacuum`](https://github.com/Tasshack/dreame-vacuum) custom
+integration.
 
-Der Saugroboter bleibt jederzeit manuell ueber die Hersteller-App steuerbar.
-Zusaetzlich soll Home Assistant automatische Reinigungen starten, wenn die Bedingungen passen.
+## What It Can Do Now
 
-## Kernregeln
+- clean only while everybody in the home is away
+- plan one room at a time based on return ETA and distance
+- stop automatic cleaning if someone gets back too early
+- support multiple residents through `presence_entities`
+- support any city or region through `travel_pause_zone`
+- learn real room durations from successful runs
+- keep a persistent run history database on disk
+- publish weekly stats and room stats as Home Assistant sensors
+- let you edit room weight, interval, duration, and enable state from the UI
+- deep-link push notifications into the dashboard
+- provide both a standard dashboard and a Mushroom dashboard
+- ship a Supervisor add-on scaffold in `addon/` with option-based config rendering
 
-1. Manuelle Steuerung hat immer Vorrang.
-2. Automatik startet nur, wenn keine manuelle Reinigung laeuft.
-3. Auto-Reinigung nur zwischen `08:00` und `22:00`.
-4. Ein Lauf startet nur, wenn er sicher vor `22:00` beendet werden kann.
-5. Alle `30 Minuten` wird geprueft, ob Reinigung sinnvoll ist.
-6. Zeitbudget basiert auf Rueckreisezeit und Restzeit bis 22:00.
-7. Wenn die Person schneller zurueckkommt als erwartet, wird ein Auto-Lauf abgebrochen.
-8. Reisemodus: Nach `24h` ausserhalb des Berlin-Radius wird die Automatik deaktiviert.
-9. Bei Rueckkehr in den Berlin-Radius wird die Automatik wieder aktiviert.
+## Main Concepts
 
-## Praesenz- und Radiuslogik
+### Occupancy
 
-- Wohnungspraesenz (fuer Putzentscheidungen): ueber `FRITZ!Box Tools` (home/away an der Wohnung).
-- Stadt-Radius (fuer Reisemodus): eigener Radius/Zone fuer Berlin.
-- Bedeutung:
-  - `Wohnung verlassen`: Auto-Reinigung darf geprueft werden.
-  - `Berlin verlassen >24h`: Reisemodus aktivieren (Auto aus).
-  - `Wieder in Berlin`: Reisemodus beenden (Auto wieder an).
+- `presence_entities`: everyone who lives there
+- cleaning starts only when all of them are away
+- cleaning stops when one of them comes back
 
-## Raumintervalle (Kalendertage)
+### Travel Model
 
-- Bad: taeglich (1 Kalendertag)
-- Kueche: alle 2 Kalendertage
-- Wohnzimmer: alle 3 Kalendertage
-- Schlafzimmer: alle 3 Kalendertage
+- `travel_person_entity`: whose commute should drive the ETA logic
+- `waze_entity`: preferred source for return ETA
+- `distance_entity`: optional direct distance source
+- fallback: calculate distance from `travel_person_entity` to `zone.home`
 
-## Intervallmodell
+### Long Trip Pause
 
-- Intervall-Logik gilt in Kalendertagen, nicht als striktes 24h-Rolling.
-- Dadurch haengt ein Raum nicht an der exakten Uhrzeit der letzten Reinigung.
-- Beispiel: Reinigung heute 18:00 -> Bewertung startet am naechsten Kalendertag neu.
+- `travel_pause_zone`: your city or usual region
+- after `travel_pause_after_hours` outside that zone, the automation pauses
+- if you do not need this, leave it out
 
-## Score-Modell (v1)
+### Learning
 
-### Formeln
+- successful runs are stored in a persistent history file
+- room durations are learned from the last few successful runs
+- learned durations become the planning duration when learning is enabled
 
-- `score = stunden_seit_letzter_reinigung / intervall_h`
-- `forecast_buffer_h = min(max(reisezeit_h * 0.25, 0.5), 2.0)`
-- `score_forecast = (stunden_seit_letzter_reinigung + forecast_buffer_h) / intervall_h`
-- `score_forecast_capped = min(score_forecast, 2.0)`
+## Dashboards
 
-### Intervallstunden
+### Standard Dashboard
 
-- Bad: `24h`
-- Kueche: `48h`
-- Wohnzimmer: `72h`
-- Schlafzimmer: `72h`
+File: `dashboard/vacuum_automation_dashboard.yaml`
 
-### Gewichte (Startwerte)
+Includes:
 
-- Bad: `1.40`
-- Kueche: `1.20`
-- Wohnzimmer: `1.00`
-- Schlafzimmer: `1.00`
+- live status
+- occupancy summary
+- return ETA and cleaning window
+- weekly stats
+- recent runs
+- room ranking
+- editable global and per-room helpers
 
-### Auswahl und Priorisierung
+### Mushroom Dashboard
 
-- Raum wird nur betrachtet, wenn `score >= 0.8` oder `score_forecast >= 1.0`.
-- Ueberfaellige Raeume (`score_forecast >= 1.0`) werden immer vor nicht ueberfaelligen Raeumen einsortiert.
-- Innerhalb derselben Stufe:
-  - zuerst nach `score_forecast_capped` absteigend
-  - dann Gewicht als Feintuning
-  - dann kuerzere Reinigungsdauer zuerst
-- Prioritaetsformel innerhalb derselben Stufe:
-  - `priority = score_forecast_capped + (gewicht - 1.0) * 0.2`
-- Ergebnis: Gewicht hilft bei knappen Entscheidungen, kann aber nicht dominieren.
+File: `dashboard/vacuum_automation_mushroom_dashboard.yaml`
 
-### Zeitbudget-Regel
+Requires:
 
-- `verfuegbare_zeit_min = min(restzeit_bis_22_uhr_min, reisezeit_h * 60)`
-- Es werden nur Raeume eingeplant, deren kumulierte Dauer in dieses Budget passt.
+- Mushroom cards
+- ApexCharts Card
 
-## Laufverhalten und Geraetestatus (Dreame)
+Includes the same information with a more polished presentation.
 
-- Ein Service-Call `dreame_vacuum.vacuum_clean_segment` mit mehreren Segmenten (z. B. `[bad, kueche]`) gilt als ein gemeinsamer Auftrag.
-- Neue Segment-Calls werden nur gestartet, wenn der Roboter nicht aktiv reinigt.
-- Solange der Roboter `cleaning` ist, wird kein neuer Segment-Call gesendet.
-- Neue Planung/Start ist erst wieder bei `idle` oder `docked` erlaubt.
-- Dadurch werden laufende Auftraege nicht ueberschrieben oder ungewollt unterbrochen.
-- Wenn im spaeteren 30-Minuten-Check mehr Zeitbudget verfuegbar ist, werden zusaetzliche Raeume erst als naechster Auftrag gestartet (nicht in den laufenden Auftrag injiziert).
+## Sensors Exposed by the App
 
-## Push bei Rueckkehr
+- `sensor.vacuum_automation_status`
+- `sensor.vacuum_automation_active_room`
+- `sensor.vacuum_automation_next_room`
+- `sensor.vacuum_automation_travel_time`
+- `sensor.vacuum_automation_return_window`
+- `sensor.vacuum_automation_distance_to_home`
+- `sensor.vacuum_automation_weekly_runs`
+- `sensor.vacuum_automation_weekly_minutes`
+- `sensor.vacuum_automation_history`
 
-- Trigger: Person wechselt auf `home` (Wohnungspraesenz).
-- Inhalt: Zusammenfassung aller seit Abwesenheitsbeginn gereinigten Raeume.
-- Deduplizierung: Jeder Raum kommt maximal einmal vor.
-- Beispiel: Statt `Bad, Bad, Kueche` wird `Bad, Kueche` gesendet.
-- Es gibt keine zusaetzlichen Pushes bei Start/Stopp/Abbruch.
+## UI Helpers
 
-## Technische Vorgaben
+Global helpers:
 
-1. Reisezeit-Berechnung: `Waze Travel Time` in Home Assistant.
-2. Zuhause/Abwesend-Erkennung: `FRITZ!Box Tools` (Device Tracker / Presence).
-3. Saugroboter-Integration: `Tasshack/dreame-vacuum`.
-4. Reisemodus-Radius: Berlin als eigene Zone/Radius in Home Assistant.
-5. Quelle: `https://github.com/Tasshack/dreame-vacuum`
+- `input_boolean.vacuum_automation_enabled`
+- `input_boolean.vacuum_automation_learning_enabled`
+- `input_number.vacuum_automation_start_hour`
+- `input_number.vacuum_automation_end_hour`
+- `input_number.vacuum_automation_return_buffer`
+- `input_number.vacuum_automation_fallback_speed`
+- `input_number.vacuum_automation_default_travel_time`
 
-## Noch offen
+Per-room helpers follow this pattern:
 
-1. Sollen Gewichte/Forecast-Startwerte nach 1-2 Wochen Laufzeit angepasst werden?
-2. Optional: Ab welcher Differenz gelten Scores als "aehnlich" fuer den Tie-Break (z. B. `<= 0.1`)?
+- `input_boolean.vacuum_automation_<room>_enabled`
+- `input_number.vacuum_automation_<room>_weight`
+- `input_number.vacuum_automation_<room>_interval_h`
+- `input_number.vacuum_automation_<room>_duration_min`
+
+Example rooms included in the sample setup:
+
+- `bad`
+- `kueche`
+- `wohnzimmer`
+- `schlafzimmer`
+
+## Repo Layout
+
+- `apps/vacuum_automation/`: AppDaemon app and sample config
+- `dashboard/`: standard and Mushroom dashboards
+- `setup/`: helper and zone examples
+- `addon/vacuum_arrival_automation/`: Supervisor add-on scaffold with generated config, helpers, and dashboards
+- `INSTALLATION.md`: setup guide

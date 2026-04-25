@@ -1,0 +1,86 @@
+# AppDaemon configuration for arrival-aware vacuum automation.
+# Copy to /config/appdaemon/apps/apps.yaml and adjust the entities.
+
+vacuum_automation:
+  module: vacuum_automation
+  class: VacuumAutomation
+
+  # Required
+  vacuum_entity: vacuum.robot_vacuum
+  notify_service: notify.mobile_app_phone
+  dashboard_path: /lovelace/vacuum-automation
+
+  # Occupancy: the automation starts only when ALL listed entities are away.
+  # Use one person if you live alone, or several if multiple people live there.
+  presence_entities:
+    - person.resident_1
+    - person.resident_2
+
+  # Travel source: this person/entity is used for distance and ETA.
+  # Usually the main person who receives the push and whose commute matters most.
+  person_entity: person.resident_1
+  travel_person_entity: person.resident_1
+  waze_entity: sensor.travel_time_to_home
+
+  # Optional distance source.
+  # If omitted, the app estimates distance from travel_person_entity to zone.home.
+  # distance_entity: sensor.distance_to_home
+
+  # Optional travel-pause zone for long trips.
+  # If you do not want this feature, remove travel_pause_zone.
+  home_zone: zone.home
+  travel_pause_zone: zone.city
+  travel_pause_after_hours: 24
+
+  # Optional helpers and dashboard state
+  state_helper: input_text.vacuum_automation_state
+  enabled_entity: input_boolean.vacuum_automation_enabled
+  learning_enabled_entity: input_boolean.vacuum_automation_learning_enabled
+  dashboard_prefix: vacuum_automation
+  helper_prefix: vacuum_automation
+  storage_dir: /config/appdaemon/apps/vacuum_automation/storage
+  max_history_entries: 1500
+  history_weeks: 8
+  learning_window: 6
+
+  # Optional helper overrides for runtime tuning from the UI
+  start_hour_entity: input_number.vacuum_automation_start_hour
+  end_hour_entity: input_number.vacuum_automation_end_hour
+  return_buffer_entity: input_number.vacuum_automation_return_buffer
+  fallback_speed_entity: input_number.vacuum_automation_fallback_speed
+  default_travel_time_entity: input_number.vacuum_automation_default_travel_time
+
+  # Defaults if helper overrides are missing
+  start_hour: 8
+  end_hour: 22
+  check_interval_min: 30
+  monitor_interval_min: 5
+  return_buffer_min: 5
+  fallback_speed_kmh: 30
+  default_travel_time_min: 60
+
+  rooms:
+    bad:
+      name: Bad
+      segment_id: 1
+      interval_h: 24
+      weight: 1.40
+      duration_min: 15
+    kueche:
+      name: Kueche
+      segment_id: 2
+      interval_h: 48
+      weight: 1.20
+      duration_min: 12
+    wohnzimmer:
+      name: Wohnzimmer
+      segment_id: 3
+      interval_h: 72
+      weight: 1.00
+      duration_min: 20
+    schlafzimmer:
+      name: Schlafzimmer
+      segment_id: 4
+      interval_h: 72
+      weight: 1.00
+      duration_min: 18
