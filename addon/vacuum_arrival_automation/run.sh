@@ -8,5 +8,6 @@ mkdir -p /config/vacuum_arrival_automation
 
 cp -R /opt/vacuum_automation/app/vacuum_automation/. /config/appdaemon/apps/vacuum_automation/
 python /opt/vacuum_automation/render_addon_config.py
+python /opt/vacuum_automation/redirect_dashboard.py &
 echo "Generated config files in /config/vacuum_arrival_automation"
 exec appdaemon -c /config/appdaemon

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
@@ -1150,7 +1151,7 @@ def write_appdaemon_yaml(options: Dict[str, Any]) -> None:
                 "HASS": {
                     "type": "hass",
                     "ha_url": "http://supervisor/core",
-                    "token": "${SUPERVISOR_TOKEN}",
+                    "token": os.environ.get("SUPERVISOR_TOKEN", ""),
                 }
             },
         },
@@ -1165,7 +1166,7 @@ def write_appdaemon_yaml(options: Dict[str, Any]) -> None:
         sort_keys=False,
         allow_unicode=False,
         width=1000,
-    ).replace("'${SUPERVISOR_TOKEN}'", "${SUPERVISOR_TOKEN}")
+    )
     APPDAEMON_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     APPDAEMON_CONFIG_PATH.write_text(text)
 
