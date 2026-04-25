@@ -23,7 +23,7 @@ It is intended to:
 2. copy the bundled automation app into `/config/appdaemon/apps/vacuum_automation`
 3. render `/config/appdaemon/apps/vacuum_arrival_automation.yaml` from add-on options
 4. generate helper YAML files for the configured entities and rooms
-5. bootstrap `appdaemon.yaml` if it does not exist
+5. refresh the managed Home Assistant connection in `appdaemon.yaml` on every start
 6. expose an ingress dashboard in the Home Assistant sidebar
 7. start AppDaemon against Home Assistant Core
 

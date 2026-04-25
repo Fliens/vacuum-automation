@@ -1102,11 +1102,28 @@ def write_yaml(path: Path, content: Dict[str, Any]) -> None:
     )
 
 
-def write_appdaemon_yaml(options: Dict[str, Any]) -> None:
-    if APPDAEMON_CONFIG_PATH.exists():
-        return
+def read_yaml_mapping(path: Path) -> Dict[str, Any]:
+    if not path.exists():
+        return {}
 
-    appdaemon_yaml = {
+    try:
+        loaded = yaml.safe_load(path.read_text()) or {}
+    except yaml.YAMLError:
+        return {}
+
+    if isinstance(loaded, dict):
+        return loaded
+    return {}
+
+
+def build_managed_appdaemon_yaml(options: Dict[str, Any]) -> Dict[str, Any]:
+    token = normalize_str(os.environ.get("SUPERVISOR_TOKEN"))
+    if not token:
+        raise RuntimeError(
+            "SUPERVISOR_TOKEN is missing. The add-on needs Home Assistant API access."
+        )
+
+    return {
         "appdaemon": {
             "time_zone": "Europe/Berlin",
             "latitude": 52.52,
@@ -1116,7 +1133,7 @@ def write_appdaemon_yaml(options: Dict[str, Any]) -> None:
                 "HASS": {
                     "type": "hass",
                     "ha_url": "http://supervisor/core",
-                    "token": os.environ.get("SUPERVISOR_TOKEN", ""),
+                    "token": token,
                 }
             },
         },
@@ -1125,8 +1142,43 @@ def write_appdaemon_yaml(options: Dict[str, Any]) -> None:
         "api": None,
     }
 
+
+def write_appdaemon_yaml(options: Dict[str, Any]) -> None:
+    managed = build_managed_appdaemon_yaml(options)
+    existing = read_yaml_mapping(APPDAEMON_CONFIG_PATH)
+
+    merged = dict(existing)
+    appdaemon_config = merged.get("appdaemon")
+    if not isinstance(appdaemon_config, dict):
+        appdaemon_config = {}
+    plugins = appdaemon_config.get("plugins")
+    if not isinstance(plugins, dict):
+        plugins = {}
+    hass_plugin = plugins.get("HASS")
+    if not isinstance(hass_plugin, dict):
+        hass_plugin = {}
+
+    managed_appdaemon = managed["appdaemon"]
+    managed_hass_plugin = managed_appdaemon["plugins"]["HASS"]
+
+    for key in ("time_zone", "latitude", "longitude", "elevation"):
+        appdaemon_config.setdefault(key, managed_appdaemon[key])
+    hass_plugin.update(managed_hass_plugin)
+    plugins["HASS"] = hass_plugin
+    appdaemon_config["plugins"] = plugins
+    merged["appdaemon"] = appdaemon_config
+
+    http_config = merged.get("http")
+    if not isinstance(http_config, dict):
+        http_config = {}
+    http_config["url"] = managed["http"]["url"]
+    merged["http"] = http_config
+
+    merged.setdefault("admin", managed["admin"])
+    merged.setdefault("api", managed["api"])
+
     text = yaml.dump(
-        appdaemon_yaml,
+        merged,
         Dumper=NoAliasDumper,
         sort_keys=False,
         allow_unicode=False,
