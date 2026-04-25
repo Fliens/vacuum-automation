@@ -2,7 +2,7 @@ name: Vacuum Arrival Automation
 version: "0.1.0"
 slug: vacuum_arrival_automation
 description: Arrival-aware vacuum automation with AppDaemon, history, learning, and dashboards
-url: https://github.com/example/vacuum_automation
+url: https://github.com/Fliens/vacuum-automation
 arch:
   - aarch64
   - amd64
