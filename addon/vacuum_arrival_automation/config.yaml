@@ -72,6 +72,7 @@ options:
   generate_helper_package: true
   generate_standard_dashboard: true
   generate_mushroom_dashboard: true
+  generate_lovelace_dashboard_config: true
   rooms: |
     - id: bad
       name: Bad
@@ -159,4 +160,5 @@ schema:
   generate_helper_package: bool
   generate_standard_dashboard: bool
   generate_mushroom_dashboard: bool
+  generate_lovelace_dashboard_config: bool
   rooms: str

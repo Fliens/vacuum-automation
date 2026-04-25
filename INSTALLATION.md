@@ -87,7 +87,16 @@ High-level flow:
 3. fill in the add-on options for your entities and room segment IDs
 4. start the add-on so it can generate `/config/appdaemon/apps/vacuum_arrival_automation.yaml`
 5. import `/config/vacuum_arrival_automation/helpers.generated.yaml`
-6. import one of the generated dashboard YAML files from `/config/vacuum_arrival_automation/`
+6. include `/config/vacuum_arrival_automation/lovelace_dashboards.generated.yaml` in your Home Assistant YAML config
+7. restart Home Assistant so the dashboard appears in the sidebar
+
+Example include in `configuration.yaml`:
+
+```yaml
+lovelace: !include /config/vacuum_arrival_automation/lovelace_dashboards.generated.yaml
+```
+
+If you already have a `lovelace:` section, merge the generated `dashboards:` entries into it instead of replacing your existing config.
 
 The most important option fields are:
 

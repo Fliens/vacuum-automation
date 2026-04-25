@@ -33,11 +33,12 @@ After install, the user configures the add-on through its options. The add-on th
 - `/config/vacuum_arrival_automation/helpers.generated.yaml`
 - `/config/vacuum_arrival_automation/dashboard.generated.yaml`
 - `/config/vacuum_arrival_automation/dashboard_mushroom.generated.yaml`
+- `/config/vacuum_arrival_automation/lovelace_dashboards.generated.yaml`
 
 The user still needs to:
 
 - import the generated helper package into Home Assistant
-- import one of the generated dashboard YAML files into Lovelace
+- include the generated Lovelace dashboard config so the dashboard can appear in the sidebar
 - validate the result in a real Home Assistant Supervisor setup
 
 Travel mode can now be configured in two ways:
