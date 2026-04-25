@@ -15,8 +15,7 @@ integration.
 - keep a persistent run history database on disk
 - publish weekly stats and room stats as Home Assistant sensors
 - let you edit room weight, interval, duration, and enable state from the UI
-- deep-link push notifications into the dashboard
-- provide both a standard dashboard and a Mushroom dashboard
+- provide an add-on sidebar dashboard for status and controls
 - ship a Supervisor add-on scaffold in `addon/` with option-based config rendering
 
 ## Main Concepts
@@ -46,32 +45,15 @@ integration.
 - room durations are learned from the last few successful runs
 - learned durations become the planning duration when learning is enabled
 
-## Dashboards
+## Add-on Dashboard
 
-### Standard Dashboard
-
-File: `dashboard/vacuum_automation_dashboard.yaml`
-
-Includes:
+The Supervisor add-on provides a built-in sidebar dashboard for:
 
 - live status
 - occupancy summary
-- return ETA and cleaning window
-- weekly stats
-- recent runs
-- room ranking
-- editable global and per-room helpers
-
-### Mushroom Dashboard
-
-File: `dashboard/vacuum_automation_mushroom_dashboard.yaml`
-
-Requires:
-
-- Mushroom cards
-- ApexCharts Card
-
-Includes the same information with a more polished presentation.
+- travel logic status
+- automation toggles
+- notification toggles
 
 ## Sensors Exposed by the App
 
@@ -114,7 +96,6 @@ Example rooms included in the sample setup:
 ## Repo Layout
 
 - `apps/vacuum_automation/`: AppDaemon app and sample config
-- `dashboard/`: standard and Mushroom dashboards
 - `setup/`: helper and zone examples
-- `addon/vacuum_arrival_automation/`: Supervisor add-on scaffold with generated config, helpers, and dashboards
+- `addon/vacuum_arrival_automation/`: Supervisor add-on scaffold with generated config, helpers, and an ingress dashboard
 - `INSTALLATION.md`: setup guide

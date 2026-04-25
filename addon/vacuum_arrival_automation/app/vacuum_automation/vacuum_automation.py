@@ -57,9 +57,7 @@ class VacuumAutomation(hass.Hass):
             "return_summary_enabled_entity"
         )
         self.notify_service = self.args.get("notify_service", "notify/mobile_app")
-        self.dashboard_path = self.args.get(
-            "dashboard_path", "/lovelace/vacuum-automation"
-        )
+        self.dashboard_path = self.args.get("dashboard_path", "")
         self.state_helper = self.args.get(
             "state_helper", "input_text.vacuum_automation_state"
         )
@@ -1029,7 +1027,11 @@ class VacuumAutomation(hass.Hass):
                 + ", ".join(cleaned)
                 + f" ({total_minutes} min)"
             ),
-            data={"clickAction": self.dashboard_path, "url": self.dashboard_path},
+            data=(
+                {"clickAction": self.dashboard_path, "url": self.dashboard_path}
+                if self.dashboard_path
+                else {}
+            ),
         )
 
     def _send_start_notification(self, room: str):
@@ -1049,7 +1051,11 @@ class VacuumAutomation(hass.Hass):
                 f"({self.active_room_planned_duration_min or self._room_effective_duration_min(room)} min, "
                 f"Fenster {available_time} min)"
             ),
-            data={"clickAction": self.dashboard_path, "url": self.dashboard_path},
+            data=(
+                {"clickAction": self.dashboard_path, "url": self.dashboard_path}
+                if self.dashboard_path
+                else {}
+            ),
         )
 
     def _recent_runs(self, limit: int = 10) -> List[dict]:

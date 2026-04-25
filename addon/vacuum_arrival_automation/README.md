@@ -4,15 +4,14 @@ This folder contains a Supervisor add-on scaffold that bundles:
 
 - the AppDaemon automation app
 - generated AppDaemon config from add-on options
-- the standard dashboard YAML
-- the Mushroom dashboard YAML
+- an ingress dashboard for status and controls
 
 ## What It Gives You
 
 - a real Home Assistant add-on package structure
 - one place to ship the automation code
 - local persistence under `/config/appdaemon/storage`
-- generated helper and dashboard YAML files under `/config/vacuum_arrival_automation`
+- generated helper YAML files under `/config/vacuum_arrival_automation`
 
 ## Current State
 
@@ -23,22 +22,19 @@ It is intended to:
 1. install AppDaemon in the container
 2. copy the bundled automation app into `/config/appdaemon/apps/vacuum_automation`
 3. render `/config/appdaemon/apps/vacuum_arrival_automation.yaml` from add-on options
-4. generate helper and dashboard YAML files for the configured entities and rooms
+4. generate helper YAML files for the configured entities and rooms
 5. bootstrap `appdaemon.yaml` if it does not exist
-6. start AppDaemon against Home Assistant Core
+6. expose an ingress dashboard in the Home Assistant sidebar
+7. start AppDaemon against Home Assistant Core
 
 After install, the user configures the add-on through its options. The add-on then generates:
 
 - `/config/appdaemon/apps/vacuum_arrival_automation.yaml`
 - `/config/vacuum_arrival_automation/helpers.generated.yaml`
-- `/config/vacuum_arrival_automation/dashboard.generated.yaml`
-- `/config/vacuum_arrival_automation/dashboard_mushroom.generated.yaml`
-- `/config/vacuum_arrival_automation/lovelace_dashboards.generated.yaml`
 
 The user still needs to:
 
 - import the generated helper package into Home Assistant
-- include the generated Lovelace dashboard config so the dashboard can appear in the sidebar
 - validate the result in a real Home Assistant Supervisor setup
 
 Travel mode can now be configured in two ways:

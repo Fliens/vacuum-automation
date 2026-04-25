@@ -1,5 +1,5 @@
 name: Vacuum Arrival Automation
-version: "0.1.3"
+version: "0.1.4"
 slug: vacuum_arrival_automation
 description: Arrival-aware vacuum automation with AppDaemon, history, learning, and dashboards
 url: https://github.com/Fliens/vacuum-automation
@@ -26,7 +26,7 @@ options:
     url: http://127.0.0.1:5050
   vacuum_entity: vacuum.robot_vacuum
   notify_service: ""
-  dashboard_path: /lovelace/vacuum-automation
+  dashboard_path: ""
   presence_entities: |
     - person.resident_1
   person_entity: person.resident_1
@@ -74,9 +74,6 @@ options:
   start_notifications_enabled: false
   return_summary_enabled: true
   generate_helper_package: true
-  generate_standard_dashboard: true
-  generate_mushroom_dashboard: true
-  generate_lovelace_dashboard_config: true
   rooms: |
     - id: bad
       name: Bad
@@ -162,7 +159,4 @@ schema:
   start_notifications_enabled: bool
   return_summary_enabled: bool
   generate_helper_package: bool
-  generate_standard_dashboard: bool
-  generate_mushroom_dashboard: bool
-  generate_lovelace_dashboard_config: bool
   rooms: str

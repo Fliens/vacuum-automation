@@ -20,7 +20,6 @@ GENERATED_DIR = Path("/config/vacuum_arrival_automation")
 HELPERS_PATH = GENERATED_DIR / "helpers.generated.yaml"
 STANDARD_DASHBOARD_PATH = GENERATED_DIR / "dashboard.generated.yaml"
 MUSHROOM_DASHBOARD_PATH = GENERATED_DIR / "dashboard_mushroom.generated.yaml"
-LOVELACE_DASHBOARDS_PATH = GENERATED_DIR / "lovelace_dashboards.generated.yaml"
 
 DEFAULT_PRESENCE_ENTITIES = ["person.resident_1"]
 DEFAULT_ROOMS = [
@@ -185,8 +184,7 @@ def default_options(raw_options: Dict[str, Any]) -> Dict[str, Any]:
         "vacuum_entity": normalize_str(raw_options.get("vacuum_entity"))
         or "vacuum.robot_vacuum",
         "notify_service": normalize_str(raw_options.get("notify_service")),
-        "dashboard_path": normalize_str(raw_options.get("dashboard_path"))
-        or "/lovelace/vacuum-automation",
+        "dashboard_path": normalize_str(raw_options.get("dashboard_path")) or "",
         "presence_entities": parse_presence_entities(raw_options.get("presence_entities")),
         "person_entity": normalize_str(raw_options.get("person_entity")) or "person.resident_1",
         "travel_person_entity": normalize_str(raw_options.get("travel_person_entity"))
@@ -280,15 +278,6 @@ def default_options(raw_options: Dict[str, Any]) -> Dict[str, Any]:
         "rooms": parse_rooms(raw_options.get("rooms")),
         "generate_helper_package": bool(
             raw_options.get("generate_helper_package", True)
-        ),
-        "generate_standard_dashboard": bool(
-            raw_options.get("generate_standard_dashboard", True)
-        ),
-        "generate_mushroom_dashboard": bool(
-            raw_options.get("generate_mushroom_dashboard", True)
-        ),
-        "generate_lovelace_dashboard_config": bool(
-            raw_options.get("generate_lovelace_dashboard_config", True)
         ),
     }
 
@@ -1100,30 +1089,6 @@ def build_mushroom_dashboard(options: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def build_lovelace_dashboards(options: Dict[str, Any]) -> Dict[str, Any]:
-    return {
-        "mode": "yaml",
-        "dashboards": {
-            f"{options['dashboard_prefix']}-dashboard": {
-                "mode": "yaml",
-                "title": "Vacuum Automation",
-                "icon": "mdi:robot-vacuum-variant",
-                "show_in_sidebar": True,
-                "require_admin": False,
-                "filename": str(STANDARD_DASHBOARD_PATH),
-            },
-            f"{options['dashboard_prefix']}-mushroom-dashboard": {
-                "mode": "yaml",
-                "title": "Vacuum Automation Mushroom",
-                "icon": "mdi:robot-vacuum-variant",
-                "show_in_sidebar": False,
-                "require_admin": False,
-                "filename": str(MUSHROOM_DASHBOARD_PATH),
-            },
-        }
-    }
-
-
 def write_yaml(path: Path, content: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -1183,31 +1148,9 @@ def main() -> None:
 
     if options["generate_helper_package"]:
         write_yaml(HELPERS_PATH, build_helpers(options))
-    if options["generate_standard_dashboard"]:
-        write_yaml(STANDARD_DASHBOARD_PATH, build_standard_dashboard(options))
-    if options["generate_mushroom_dashboard"]:
-        write_yaml(MUSHROOM_DASHBOARD_PATH, build_mushroom_dashboard(options))
-    if options["generate_lovelace_dashboard_config"]:
-        write_yaml(LOVELACE_DASHBOARDS_PATH, build_lovelace_dashboards(options))
-
     summary = {
         "app_config": str(APP_CONFIG_PATH),
         "helpers": str(HELPERS_PATH) if options["generate_helper_package"] else None,
-        "standard_dashboard": (
-            str(STANDARD_DASHBOARD_PATH)
-            if options["generate_standard_dashboard"]
-            else None
-        ),
-        "mushroom_dashboard": (
-            str(MUSHROOM_DASHBOARD_PATH)
-            if options["generate_mushroom_dashboard"]
-            else None
-        ),
-        "lovelace_dashboards": (
-            str(LOVELACE_DASHBOARDS_PATH)
-            if options["generate_lovelace_dashboard_config"]
-            else None
-        ),
     }
     print(json.dumps(summary))
 

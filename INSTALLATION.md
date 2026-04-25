@@ -35,7 +35,6 @@ Must adjust:
 
 Recommended:
 
-- `dashboard_path`
 - `travel_pause_zone`
 - `enabled_entity`
 - `learning_enabled_entity`
@@ -56,18 +55,6 @@ This creates:
 Use `setup/travel_pause_zone.yaml` as an example and replace it with your own city or
 region if you want long-trip pausing.
 
-### 5. Import a Dashboard
-
-Choose one:
-
-- `dashboard/vacuum_automation_dashboard.yaml`
-- `dashboard/vacuum_automation_mushroom_dashboard.yaml`
-
-The Mushroom version additionally requires:
-
-- Mushroom
-- ApexCharts Card
-
 ## Path B: Use the Supervisor Add-on Scaffold
 
 The folder `addon/vacuum_arrival_automation/` contains a first Supervisor add-on
@@ -78,7 +65,7 @@ It bundles:
 - the AppDaemon app
 - generated AppDaemon config
 - generated helper package
-- generated dashboards
+- an ingress dashboard inside the add-on sidebar entry
 
 High-level flow:
 
@@ -87,16 +74,7 @@ High-level flow:
 3. fill in the add-on options for your entities and room segment IDs
 4. start the add-on so it can generate `/config/appdaemon/apps/vacuum_arrival_automation.yaml`
 5. import `/config/vacuum_arrival_automation/helpers.generated.yaml`
-6. include `/config/vacuum_arrival_automation/lovelace_dashboards.generated.yaml` in your Home Assistant YAML config
-7. restart Home Assistant so the dashboard appears in the sidebar
-
-Example include in `configuration.yaml`:
-
-```yaml
-lovelace: !include /config/vacuum_arrival_automation/lovelace_dashboards.generated.yaml
-```
-
-If you already have a `lovelace:` section, merge the generated `dashboards:` entries into it instead of replacing your existing config.
+6. enable the add-on sidebar entry and open the built-in dashboard
 
 The most important option fields are:
 

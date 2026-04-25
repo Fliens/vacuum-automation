@@ -8,7 +8,7 @@ vacuum_automation:
   # Required
   vacuum_entity: vacuum.robot_vacuum
   notify_service: notify.mobile_app_phone
-  dashboard_path: /lovelace/vacuum-automation
+  dashboard_path: ""
 
   # Occupancy: the automation starts only when ALL listed entities are away.
   # Use one person if you live alone, or several if multiple people live there.
