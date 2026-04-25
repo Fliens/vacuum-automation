@@ -1,0 +1,10 @@
+# Beispiel-Zone fuer Langzeit-Abwesenheit
+# Füge zu configuration.yaml hinzu oder erstelle über UI
+# Nutze hier deine eigene Stadt oder Region.
+
+zone:
+  - name: City
+    latitude: 52.52
+    longitude: 13.405
+    radius: 50000  # 50km Radius
+    icon: mdi:city
