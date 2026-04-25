@@ -761,8 +761,14 @@ HTML = """<!doctype html>
         .replaceAll("'", "&#039;");
     }
 
+    function localApiUrl(path) {
+      const cleanedPath = String(path || "").replace(/^\/+/, "");
+      const basePath = window.location.pathname.replace(/\/+$/, "");
+      return `${basePath}/${cleanedPath}`;
+    }
+
     async function api(path, options = {}) {
-      const response = await fetch(path, {
+      const response = await fetch(localApiUrl(path), {
         headers: { "Content-Type": "application/json" },
         ...options
       });

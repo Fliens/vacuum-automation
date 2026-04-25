@@ -638,6 +638,18 @@ class VacuumAutomation(hass.Hass):
             },
         )
 
+    @staticmethod
+    def _ha_state(value):
+        if value is None:
+            return "unknown"
+        if isinstance(value, bool):
+            return "on" if value else "off"
+        if isinstance(value, float):
+            if value.is_integer():
+                return str(int(value))
+            return f"{value:.1f}"
+        return str(value)
+
     def _publish_virtual_zones(self):
         travel_home_zone = self._custom_home_zone_config()
         if travel_home_zone:
@@ -1264,12 +1276,12 @@ class VacuumAutomation(hass.Hass):
 
         self.set_state(
             f"sensor.{self.dashboard_prefix}_status",
-            state=status,
+            state=self._ha_state(status),
             attributes=common_attributes,
         )
         self.set_state(
             f"sensor.{self.dashboard_prefix}_travel_time",
-            state=int(travel_time),
+            state=self._ha_state(int(travel_time)),
             attributes={
                 "friendly_name": "Rueckreisezeit",
                 "unit_of_measurement": "min",
@@ -1278,7 +1290,7 @@ class VacuumAutomation(hass.Hass):
         )
         self.set_state(
             f"sensor.{self.dashboard_prefix}_return_window",
-            state=int(available_time),
+            state=self._ha_state(int(available_time)),
             attributes={
                 "friendly_name": "Verfuegbares Reinigungsfenster",
                 "unit_of_measurement": "min",
@@ -1287,7 +1299,7 @@ class VacuumAutomation(hass.Hass):
         )
         self.set_state(
             f"sensor.{self.dashboard_prefix}_distance_to_home",
-            state=round(distance_km, 1) if distance_km is not None else "unknown",
+            state=self._ha_state(round(distance_km, 1) if distance_km is not None else None),
             attributes={
                 "friendly_name": "Distanz nach Hause",
                 "unit_of_measurement": "km",
@@ -1296,7 +1308,9 @@ class VacuumAutomation(hass.Hass):
         )
         self.set_state(
             f"sensor.{self.dashboard_prefix}_active_room",
-            state=self._room_label(self.active_room) if self.active_room else "Keine",
+            state=self._ha_state(
+                self._room_label(self.active_room) if self.active_room else "Keine"
+            ),
             attributes={
                 "friendly_name": "Aktiver Raum",
                 "icon": "mdi:floor-plan",
@@ -1307,7 +1321,7 @@ class VacuumAutomation(hass.Hass):
         )
         self.set_state(
             f"sensor.{self.dashboard_prefix}_next_room",
-            state=self._room_label(next_room) if next_room else "Keiner",
+            state=self._ha_state(self._room_label(next_room) if next_room else "Keiner"),
             attributes={
                 "friendly_name": "Naechster Raum",
                 "icon": "mdi:sofa-outline",
@@ -1316,7 +1330,7 @@ class VacuumAutomation(hass.Hass):
         )
         self.set_state(
             f"sensor.{self.dashboard_prefix}_weekly_runs",
-            state=weekly_runs,
+            state=self._ha_state(weekly_runs),
             attributes={
                 "friendly_name": "Reinigungen diese Woche",
                 "icon": "mdi:calendar-check",
@@ -1325,7 +1339,7 @@ class VacuumAutomation(hass.Hass):
         )
         self.set_state(
             f"sensor.{self.dashboard_prefix}_weekly_minutes",
-            state=weekly_minutes,
+            state=self._ha_state(weekly_minutes),
             attributes={
                 "friendly_name": "Reinigungsminuten diese Woche",
                 "icon": "mdi:timer-sand",
@@ -1335,7 +1349,7 @@ class VacuumAutomation(hass.Hass):
         )
         self.set_state(
             f"sensor.{self.dashboard_prefix}_history",
-            state=len(self.history_entries),
+            state=self._ha_state(len(self.history_entries)),
             attributes={
                 "friendly_name": "History Eintraege",
                 "icon": "mdi:chart-timeline-variant",
