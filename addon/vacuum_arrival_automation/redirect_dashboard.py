@@ -713,26 +713,63 @@ def render_room_row(summary: dict, room: dict, index: int, section_kind: str) ->
     fits = bool(room.get("fits_now", True))
     room_key = str(room.get("room_key") or room.get("room") or "")
     active_room = active_room_label(summary)
-    actions = []
+
+    # Build action button (neben dem Namen)
+    action_btn = ""
     if not active_room and section_kind == "due" and fits:
-        actions.append(
-            f'<button class="room-action primary" type="button" data-room-action="start" data-room-key="{escape(room_key)}">Jetzt reinigen</button>'
-        )
-    if section_kind == "later":
-        actions.append(
-            f'<button class="room-action" type="button" data-room-action="due" data-room-key="{escape(room_key)}">Fällig machen</button>'
-        )
-    actions_html = f'<div class="room-actions">{"".join(actions)}</div>' if actions else ""
+        action_btn = f'<button class="room-btn primary" type="button" data-room-action="start" data-room-key="{escape(room_key)}">Starten</button>'
+    elif section_kind == "later":
+        action_btn = f'<button class="room-btn" type="button" data-room-action="due" data-room-key="{escape(room_key)}">Vorziehen</button>'
+
+    # Build due tag based on last_cleaned + interval
+    from datetime import datetime, timedelta
+    last_cleaned_str = stats.get("last_cleaned")
+    interval_h = number_value(room.get("interval_h"), 24) or 24
+    due_tag = ''
+
+    if last_cleaned_str:
+        try:
+            last_cleaned_dt = datetime.fromisoformat(last_cleaned_str.replace("Z", "+00:00"))
+            due_dt = last_cleaned_dt + timedelta(hours=interval_h)
+            now = datetime.now(due_dt.tzinfo) if due_dt.tzinfo else datetime.now()
+            hours_until_due = (due_dt - now).total_seconds() / 3600
+
+            if hours_until_due <= 0:
+                due_tag = '<span class="room-tag overdue"><span class="icon">⏰</span> überfällig</span>'
+            elif hours_until_due <= 24:
+                due_tag = '<span class="room-tag due"><span class="icon">⏰</span> heute</span>'
+            else:
+                days_until = int(hours_until_due / 24)
+                due_tag = f'<span class="room-tag due"><span class="icon">⏰</span> in {days_until}d</span>'
+        except (ValueError, TypeError):
+            pass
+
+    # Build interval tag
+    interval_days = interval_h / 24
+    if interval_days <= 1:
+        interval_tag = '<span class="room-tag interval">täglich</span>'
+    elif interval_days == 2:
+        interval_tag = '<span class="room-tag interval">alle 2 Tage</span>'
+    elif interval_days == 7:
+        interval_tag = '<span class="room-tag interval">wöchentlich</span>'
+    elif interval_days == 14:
+        interval_tag = '<span class="room-tag interval">alle 2 Wochen</span>'
+    else:
+        interval_tag = f'<span class="room-tag interval">alle {int(interval_days)} Tage</span>'
+
+    buttons_html = f'<div class="room-buttons">{action_btn}</div>' if action_btn else ''
+
     return f"""
         <div class="room-row {'next' if index == 1 else ''}" draggable="true" data-room-key="{escape(room_key)}" data-room-section-kind="{escape(section_kind)}">
           <div class="room-rank" aria-hidden="true">{index}</div>
           <div class="room-info">
-            <div class="room-title">
-              <div class="room-name">{escape(room.get("room", "Raum"))}</div>
-              <div class="room-last-cleaned">{escape(format_last_cleaned(stats.get("last_cleaned")))}</div>
+            <div class="room-name">{escape(room.get("room", "Raum"))}</div>
+            <div class="room-tags">
+              <span class="room-tag last"><span class="icon">✓</span> {escape(format_last_cleaned(stats.get("last_cleaned")))}</span>
+              {due_tag}
+              {interval_tag}
             </div>
-            <div class="room-reason">{escape(room_reason_text(room))}</div>
-            {actions_html}
+            {buttons_html}
           </div>
           <div class="room-duration">
             <strong>{escape(format_number(room.get("effective_duration_min"), " min"))}</strong>
@@ -755,18 +792,40 @@ def render_active_room_row(summary: dict) -> str:
     progress_value = 0
     if planned_value > 0:
         progress_value = max(0, min(100, ((planned_value - remaining_value) / planned_value) * 100))
+
+    # Find room in queue to get interval
+    queue = summary.get("status", {}).get("room_queue", []) or []
+    room_data = next((r for r in queue if r.get("room") == active_room), {})
+    interval_h = number_value(room_data.get("interval_h"), 24) or 24
+    interval_days = interval_h / 24
+
+    if interval_days <= 1:
+        interval_tag = '<span class="room-tag interval">täglich</span>'
+    elif interval_days == 2:
+        interval_tag = '<span class="room-tag interval">alle 2 Tage</span>'
+    elif interval_days == 7:
+        interval_tag = '<span class="room-tag interval">wöchentlich</span>'
+    elif interval_days == 14:
+        interval_tag = '<span class="room-tag interval">alle 2 Wochen</span>'
+    else:
+        interval_tag = f'<span class="room-tag interval">alle {int(interval_days)} Tage</span>'
+
     return f"""
       <div class="room-row next">
         <div class="room-info">
-          <div class="room-title">
-            <div class="room-name">{escape(active_room)}</div>
-            <div class="room-last-cleaned">läuft gerade</div>
+          <div class="room-name">{escape(active_room)}</div>
+          <div class="room-tags">
+            <span class="room-tag last"><span class="icon">🧹</span> läuft gerade</span>
+            {interval_tag}
           </div>
           <div class="room-progress">
             <div class="room-progress-value">{progress_value:.0f}%</div>
             <div class="room-progress-bar" aria-hidden="true">
               <span style="width: {progress_value:.0f}%"></span>
             </div>
+          </div>
+          <div class="room-buttons">
+            <button class="room-btn danger" type="button" data-room-action="stop">Abbrechen</button>
           </div>
         </div>
         <div class="room-duration">
@@ -1408,14 +1467,46 @@ HTML = """<!doctype html>
       flex: 1;
       min-width: 0;
     }
+    .room-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 4px;
+    }
     .room-name {
       font-weight: 600;
       font-size: 14px;
-      margin-bottom: 2px;
     }
-    .room-meta {
-      font-size: 12px;
+    .room-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .room-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .room-tag.last {
+      background: var(--panel);
       color: var(--muted);
+    }
+    .room-tag.due {
+      background: var(--warning-soft);
+      color: var(--warning);
+    }
+    .room-tag.overdue {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+    .room-tag .icon {
+      font-size: 10px;
     }
     .room-duration {
       text-align: right;
@@ -2238,12 +2329,36 @@ HTML = """<!doctype html>
         const stats = roomStats.find(stat => stat.room_key === item.room_key || stat.room === item.room) || {};
         const lastCleaned = formatLastCleaned(stats.last_cleaned);
 
+        // Calculate due status
+        const intervalH = item.interval_h || 24;
+        const lastCleanedDate = stats.last_cleaned ? new Date(stats.last_cleaned) : null;
+        let dueTag = '';
+        if (lastCleanedDate) {
+          const now = new Date();
+          const hoursSinceCleaned = (now - lastCleanedDate) / (1000 * 60 * 60);
+          const hoursUntilDue = intervalH - hoursSinceCleaned;
+          const daysUntilDue = Math.round(hoursUntilDue / 24);
+
+          if (hoursUntilDue <= 0) {
+            dueTag = '<span class="room-tag overdue"><span class="icon">⏰</span> überfällig</span>';
+          } else if (daysUntilDue <= 1) {
+            dueTag = '<span class="room-tag due"><span class="icon">⏰</span> heute</span>';
+          } else {
+            dueTag = `<span class="room-tag due"><span class="icon">⏰</span> in ${daysUntilDue}d</span>`;
+          }
+        }
+
         return `
           <div class="room-row ${index === 0 ? "next" : ""}">
             <div class="room-rank">${index + 1}</div>
             <div class="room-info">
-              <div class="room-name">${escapeHtml(item.room)}</div>
-              <div class="room-meta">Zuletzt: ${escapeHtml(lastCleaned)}</div>
+              <div class="room-header">
+                <span class="room-name">${escapeHtml(item.room)}</span>
+                <div class="room-tags">
+                  <span class="room-tag last"><span class="icon">✓</span> ${escapeHtml(lastCleaned)}</span>
+                  ${dueTag}
+                </div>
+              </div>
             </div>
             <div class="room-duration">
               <strong>${escapeHtml(item.effective_duration_min)} min</strong>
@@ -2362,6 +2477,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/start_room":
             self._handle_start_room()
             return
+        if parsed.path == "/api/stop_cleaning":
+            self._handle_stop_cleaning()
+            return
         if parsed.path == "/api/set_room_due":
             self._handle_set_room_due()
             return
@@ -2432,6 +2550,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
         try:
             fire_event(EVENT_START_ROOM, {"room_key": room_key})
             self._json_response({"ok": True, "room_key": room_key})
+        except urllib.error.HTTPError as err:
+            self._json_response({"ok": False, "error": str(err)}, status=502)
+        except Exception as err:
+            self._json_response({"ok": False, "error": str(err)}, status=500)
+
+    def _handle_stop_cleaning(self):
+        options = load_options()
+        vacuum_entity = options.get("vacuum_entity", "")
+        if not vacuum_entity:
+            self._json_response({"ok": False, "error": "no vacuum configured"}, status=400)
+            return
+
+        try:
+            service_call("vacuum", "return_to_base", vacuum_entity)
+            self._json_response({"ok": True})
         except urllib.error.HTTPError as err:
             self._json_response({"ok": False, "error": str(err)}, status=502)
         except Exception as err:

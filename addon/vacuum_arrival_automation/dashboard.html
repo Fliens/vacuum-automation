@@ -299,8 +299,7 @@
       font-weight: 700;
       flex: 0 0 auto;
     }
-    .person-name,
-    .room-name {
+    .person-name {
       font-weight: 650;
       font-size: 14px;
     }
@@ -331,15 +330,22 @@
       cursor: grab;
     }
     .room-row.dragging {
-      opacity: 0.55;
+      opacity: 0.4;
+      transform: scale(1.02);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
       cursor: grabbing;
+      z-index: 100;
+    }
+    .room-row:not(.dragging) {
+      transition: transform 200ms ease, margin 200ms ease;
     }
     .room-placeholder {
-      height: 0;
-      border-top: 2px solid var(--accent);
-      border-radius: 999px;
-      margin: 2px 0;
-      transition: margin 140ms ease;
+      height: 52px;
+      background: var(--accent-soft);
+      border: 2px dashed var(--accent);
+      border-radius: 10px;
+      margin: 4px 0;
+      transition: height 150ms ease, margin 150ms ease;
     }
     .room-section {
       margin: 6px 0 2px;
@@ -381,28 +387,83 @@
       flex: 1;
       min-width: 0;
     }
-    .room-title {
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      flex-wrap: wrap;
-      gap: 8px;
+    .room-name {
+      font-weight: 650;
+      font-size: 14px;
+      margin-bottom: 4px;
     }
-    .room-last-cleaned {
-      display: inline-block;
+    .room-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .room-btn {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+    }
+    .room-btn:hover {
+      background: var(--panel-soft);
+    }
+    .room-btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+    .room-btn.primary:hover {
+      background: var(--accent-strong);
+    }
+    .room-btn.danger {
+      background: var(--danger-soft);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    .room-btn.danger:hover {
+      background: var(--danger);
+      color: white;
+    }
+    .room-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .room-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
       padding: 3px 8px;
       border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .room-tag.last {
       background: var(--panel);
       border: 1px solid var(--line);
       color: var(--muted);
-      font-size: 11px;
-      font-weight: 650;
-      white-space: nowrap;
     }
-    .room-reason {
-      color: var(--muted);
-      font-size: 12px;
-      margin-top: 4px;
+    .room-tag.due {
+      background: var(--warning-soft);
+      color: var(--warning);
+    }
+    .room-tag.overdue {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+    .room-tag .icon {
+      font-size: 10px;
+    }
+    .room-tag.interval {
+      background: var(--panel);
+      color: var(--ink);
+      border: 1px solid var(--line);
     }
     .room-actions {
       margin-top: 8px;
@@ -597,6 +658,9 @@
       if (!list) return;
 
       let dragged = null;
+      let touchClone = null;
+      let touchStartY = 0;
+      let touchOffsetY = 0;
       const placeholder = document.createElement("div");
       placeholder.className = "room-placeholder";
 
@@ -620,10 +684,44 @@
       }
 
       function updateRanks() {
-        list.querySelectorAll(".room-row").forEach((row, index) => {
+        const dueSection = list.querySelector('.room-section[data-room-section-kind="due"]');
+        const laterSection = list.querySelector('.room-section[data-room-section-kind="later"]');
+
+        function collectRows(startElement, endElement) {
+          const rows = [];
+          let current = startElement?.nextElementSibling;
+          while (current && current !== endElement) {
+            if (current === placeholder && dragged) {
+              rows.push(dragged);
+            } else if (current.classList.contains("room-row")) {
+              if (current !== dragged || !placeholder.parentNode) {
+                rows.push(current);
+              }
+            }
+            current = current.nextElementSibling;
+          }
+          return rows;
+        }
+
+        // Sammle due-Räume (zwischen due und later section)
+        const dueRows = collectRows(dueSection, laterSection);
+
+        // Sammle later-Räume (nach later section bis zum Ende)
+        const laterRows = collectRows(laterSection, null);
+
+        // Ränge für due-Räume (1, 2, 3, ...)
+        dueRows.forEach((row, index) => {
           const rank = row.querySelector(".room-rank");
           if (rank) rank.textContent = String(index + 1);
           row.classList.toggle("next", index === 0);
+        });
+
+        // Ränge für later-Räume (fortlaufend nach due)
+        const laterStartIndex = dueRows.length;
+        laterRows.forEach((row, index) => {
+          const rank = row.querySelector(".room-rank");
+          if (rank) rank.textContent = String(laterStartIndex + index + 1);
+          row.classList.remove("next");
         });
       }
 
@@ -652,52 +750,26 @@
         }
       }
 
-      list.addEventListener("click", async (event) => {
-        const button = event.target.closest("[data-room-action]");
-        if (!button) return;
-
-        const action = button.dataset.roomAction;
-        const roomKey = button.dataset.roomKey;
-        if (!roomKey) return;
-
-        try {
-          if (action === "start") {
-            await postJson("/api/start_room", { room_key: roomKey });
-          } else if (action === "due") {
-            await postJson("/api/set_room_due", { room_key: roomKey, due: true });
-          }
-          window.location.reload();
-        } catch (error) {
-          window.location.reload();
+      function getTargetAtPoint(clientX, clientY) {
+        const elements = document.elementsFromPoint(clientX, clientY);
+        for (const el of elements) {
+          if (el === touchClone || el === placeholder) continue;
+          const row = el.closest("[data-room-key]");
+          if (row && row !== dragged) return { row, section: null };
+          const section = el.closest("[data-room-section-kind]");
+          if (section) return { row: null, section };
         }
-      });
+        return { row: null, section: null };
+      }
 
-      list.addEventListener("dragstart", (event) => {
-        const row = event.target.closest("[data-room-key]");
-        if (!row) return;
-        dragged = row;
-        row.classList.add("dragging");
-        row.after(placeholder);
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", row.dataset.roomKey);
-      });
-
-      list.addEventListener("dragend", () => {
-        list.querySelectorAll(".dragging").forEach((row) => row.classList.remove("dragging"));
-        clearDropTargets();
-        clearPlaceholder();
-        dragged = null;
-      });
-
-      list.addEventListener("dragover", (event) => {
+      function handleMove(clientY) {
         if (!dragged) return;
 
-        const target = event.target.closest("[data-room-key]");
+        const { row: target, section: sectionTarget } = getTargetAtPoint(list.getBoundingClientRect().left + 50, clientY);
         const sourceKind = sectionKindFor(dragged);
 
-        if (target && target !== dragged) {
+        if (target) {
           const targetKind = sectionKindFor(target);
-          event.preventDefault();
 
           if (targetKind && targetKind !== sourceKind) {
             clearPlaceholder();
@@ -708,34 +780,31 @@
 
           clearDropTargets();
           const rect = target.getBoundingClientRect();
-          const insertAfter = event.clientY > rect.top + rect.height / 2;
+          const insertAfter = clientY > rect.top + rect.height / 2;
           const referenceNode = insertAfter ? target.nextSibling : target;
 
-          if (referenceNode === dragged || referenceNode === dragged?.nextSibling) {
-            return;
-          }
+          if (referenceNode === dragged || referenceNode === dragged?.nextSibling) return;
           if (referenceNode === placeholder) return;
           list.insertBefore(placeholder, referenceNode);
+          updateRanks();
           return;
         }
 
-        const sectionTarget = event.target.closest("[data-room-section-kind]");
-        const targetKind = sectionKindFor(sectionTarget);
-        if (!targetKind || targetKind === sourceKind) return;
-        event.preventDefault();
-        clearPlaceholder();
-        clearDropTargets();
-        sectionTarget.classList.add("drop-target");
-      });
+        if (sectionTarget) {
+          const targetKind = sectionKindFor(sectionTarget);
+          if (!targetKind || targetKind === sourceKind) return;
+          clearPlaceholder();
+          clearDropTargets();
+          sectionTarget.classList.add("drop-target");
+        }
+      }
 
-      list.addEventListener("drop", async (event) => {
+      async function handleDrop() {
         if (!dragged) return;
-        event.preventDefault();
 
-        const targetRow = event.target.closest("[data-room-key]");
-        const targetSection = event.target.closest("[data-room-section-kind]");
+        const targetSection = list.querySelector(".drop-target[data-room-section-kind]");
         const sourceKind = sectionKindFor(dragged);
-        const targetKind = sectionKindFor(targetRow || targetSection);
+        const targetKind = targetSection ? sectionKindFor(targetSection) : null;
 
         if (targetKind && targetKind !== sourceKind) {
           clearDropTargets();
@@ -765,11 +834,126 @@
         clearPlaceholder();
         updateRanks();
 
+        const roomKey = dragged.dataset.roomKey;
+        dragged.classList.remove("dragging");
+        dragged = null;
+
         try {
-          await postJson("/api/prioritize_room", { room_key: dragged.dataset.roomKey });
+          await postJson("/api/prioritize_room", { room_key: roomKey });
         } catch (error) {
           window.location.reload();
         }
+      }
+
+      list.addEventListener("click", async (event) => {
+        const button = event.target.closest("[data-room-action]");
+        if (!button) return;
+
+        const action = button.dataset.roomAction;
+        const roomKey = button.dataset.roomKey;
+
+        try {
+          if (action === "stop") {
+            await postJson("/api/stop_cleaning", {});
+          } else if (action === "start" && roomKey) {
+            await postJson("/api/start_room", { room_key: roomKey });
+          } else if (action === "due" && roomKey) {
+            await postJson("/api/set_room_due", { room_key: roomKey, due: true });
+          }
+          window.location.reload();
+        } catch (error) {
+          window.location.reload();
+        }
+      });
+
+      // Native drag events (desktop)
+      list.addEventListener("dragstart", (event) => {
+        const row = event.target.closest("[data-room-key]");
+        if (!row) return;
+        dragged = row;
+        row.classList.add("dragging");
+        row.after(placeholder);
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", row.dataset.roomKey);
+      });
+
+      list.addEventListener("dragend", () => {
+        list.querySelectorAll(".dragging").forEach((row) => row.classList.remove("dragging"));
+        clearDropTargets();
+        clearPlaceholder();
+        dragged = null;
+      });
+
+      list.addEventListener("dragover", (event) => {
+        if (!dragged) return;
+        event.preventDefault();
+        handleMove(event.clientY);
+      });
+
+      list.addEventListener("drop", (event) => {
+        event.preventDefault();
+        handleDrop();
+      });
+
+      // Touch events (mobile)
+      list.addEventListener("touchstart", (event) => {
+        const row = event.target.closest("[data-room-key]");
+        if (!row) return;
+
+        const touch = event.touches[0];
+        const rect = row.getBoundingClientRect();
+        touchStartY = touch.clientY;
+        touchOffsetY = touch.clientY - rect.top;
+
+        dragged = row;
+        row.classList.add("dragging");
+        row.after(placeholder);
+
+        // Create floating clone
+        touchClone = row.cloneNode(true);
+        touchClone.classList.add("touch-clone");
+        touchClone.style.cssText = `
+          position: fixed;
+          left: ${rect.left}px;
+          top: ${rect.top}px;
+          width: ${rect.width}px;
+          z-index: 1000;
+          pointer-events: none;
+          opacity: 0.9;
+          transform: scale(1.02);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        `;
+        document.body.appendChild(touchClone);
+      }, { passive: true });
+
+      list.addEventListener("touchmove", (event) => {
+        if (!dragged || !touchClone) return;
+        event.preventDefault();
+
+        const touch = event.touches[0];
+        touchClone.style.top = `${touch.clientY - touchOffsetY}px`;
+        handleMove(touch.clientY);
+      }, { passive: false });
+
+      list.addEventListener("touchend", () => {
+        if (touchClone) {
+          touchClone.remove();
+          touchClone = null;
+        }
+        handleDrop();
+      });
+
+      list.addEventListener("touchcancel", () => {
+        if (touchClone) {
+          touchClone.remove();
+          touchClone = null;
+        }
+        if (dragged) {
+          dragged.classList.remove("dragging");
+          dragged = null;
+        }
+        clearDropTargets();
+        clearPlaceholder();
       });
     })();
   </script>

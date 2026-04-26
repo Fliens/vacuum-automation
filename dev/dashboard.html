@@ -421,14 +421,46 @@
       flex: 1;
       min-width: 0;
     }
+    .room-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 4px;
+    }
     .room-name {
       font-weight: 600;
       font-size: 14px;
-      margin-bottom: 2px;
     }
-    .room-meta {
-      font-size: 12px;
+    .room-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .room-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .room-tag.last {
+      background: var(--panel);
       color: var(--muted);
+    }
+    .room-tag.due {
+      background: var(--warning-soft);
+      color: var(--warning);
+    }
+    .room-tag.overdue {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+    .room-tag .icon {
+      font-size: 10px;
     }
     .room-duration {
       text-align: right;
@@ -580,8 +612,13 @@
             <div class="room-row next">
               <div class="room-rank">1</div>
               <div class="room-info">
-                <div class="room-name">Küche</div>
-                <div class="room-meta">Zuletzt: vor 2 Tagen</div>
+                <div class="room-header">
+                  <span class="room-name">Küche</span>
+                  <div class="room-tags">
+                    <span class="room-tag last"><span class="icon">✓</span> vor 2d</span>
+                    <span class="room-tag overdue"><span class="icon">⏰</span> überfällig</span>
+                  </div>
+                </div>
               </div>
               <div class="room-duration">
                 <strong>12 min</strong>
@@ -591,8 +628,13 @@
             <div class="room-row">
               <div class="room-rank">2</div>
               <div class="room-info">
-                <div class="room-name">Wohnzimmer</div>
-                <div class="room-meta">Zuletzt: vor 3 Tagen</div>
+                <div class="room-header">
+                  <span class="room-name">Wohnzimmer</span>
+                  <div class="room-tags">
+                    <span class="room-tag last"><span class="icon">✓</span> vor 3d</span>
+                    <span class="room-tag due"><span class="icon">⏰</span> in 1d</span>
+                  </div>
+                </div>
               </div>
               <div class="room-duration">
                 <strong>18 min</strong>
@@ -602,8 +644,13 @@
             <div class="room-row">
               <div class="room-rank">3</div>
               <div class="room-info">
-                <div class="room-name">Schlafzimmer</div>
-                <div class="room-meta">Zuletzt: vor 4 Tagen</div>
+                <div class="room-header">
+                  <span class="room-name">Schlafzimmer</span>
+                  <div class="room-tags">
+                    <span class="room-tag last"><span class="icon">✓</span> vor 4d</span>
+                    <span class="room-tag due"><span class="icon">⏰</span> in 3d</span>
+                  </div>
+                </div>
               </div>
               <div class="room-duration">
                 <strong>15 min</strong>
