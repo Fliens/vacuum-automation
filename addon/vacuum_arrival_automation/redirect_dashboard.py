@@ -817,16 +817,15 @@ def collect_robot_states(options: dict, vacuum_state: Any) -> dict:
 def available_presence_entities(configured: List[str], options: dict = None) -> List[dict]:
     if options is None:
         options = {}
-    
+
     waze_entity = options.get("waze_entity", "")
     distance_entity = options.get("distance_entity", "")
-    person_entity = options.get("person_entity", "")
-    
+
     seen = set()
     people: List[dict] = []
     for state in all_states():
         entity_id = str(state.get("entity_id") or "")
-        
+
         # Only include person entities, or sensor entities if explicitly configured
         # device_tracker entities are too granular and technical for presence selection
         is_person = entity_id.startswith("person.")
@@ -834,11 +833,18 @@ def available_presence_entities(configured: List[str], options: dict = None) -> 
 
         if not (is_person or is_tracked_sensor):
             continue
-        
+
         attrs = state.get("attributes", {}) if isinstance(state.get("attributes"), dict) else {}
         seen.add(entity_id)
-        
-        # Determine source
+
+        # For person entities, check if they have a device tracker linked
+        # The "source" attribute contains the device_tracker entity if linked
+        has_device = False
+        device_source = attrs.get("source")
+        if is_person and device_source and str(device_source).startswith("device_tracker."):
+            has_device = True
+
+        # Determine source label
         source = "Default"
         if entity_id == waze_entity:
             source = "Waze"
@@ -846,13 +852,14 @@ def available_presence_entities(configured: List[str], options: dict = None) -> 
             source = "Entfernung"
         elif not entity_id.startswith("person."):
             source = "Sensor"
-        
+
         people.append(
             {
                 "entity_id": entity_id,
                 "name": str(attrs.get("friendly_name") or entity_id.split(".", 1)[-1].replace("_", " ").title()),
                 "state": str(state.get("state") or "unknown"),
                 "source": source,
+                "has_device": has_device,
             }
         )
     for entity_id in configured:
@@ -862,16 +869,18 @@ def available_presence_entities(configured: List[str], options: dict = None) -> 
                 source = "Waze"
             elif entity_id == distance_entity:
                 source = "Entfernung"
-            
+
             people.append(
                 {
                     "entity_id": entity_id,
                     "name": entity_id.split(".", 1)[-1].replace("_", " ").title(),
                     "state": "unknown",
                     "source": source,
+                    "has_device": False,
                 }
             )
-    return sorted(people, key=lambda item: item["name"].lower())
+    # Sort: persons with devices first, then by name
+    return sorted(people, key=lambda item: (not item.get("has_device", False), item["name"].lower()))
 
 
 def room_segment_catalog(vacuum_state: Any, configured_rooms: List[dict], room_names: dict) -> List[dict]:
@@ -2495,60 +2504,94 @@ def render_settings_presence(summary: dict) -> str:
     entity_id = summary.get("entities", {}).get("global", {}).get("selected_presence_entities", "")
     selected = set(selected_presence_from_summary(summary))
     people = summary.get("available_presence_entities", []) or []
-    options = summary.get("options", {})
-    
+
     if not people:
-        return '<p class="empty">Keine Personen oder Tracker gefunden.</p>'
+        return '<p class="empty">Keine Personen gefunden.</p>'
+
+    # Separate people with and without devices
+    with_device = [p for p in people if p.get("has_device")]
+    without_device = [p for p in people if not p.get("has_device") and p.get("entity_id", "").startswith("person.")]
 
     rows = []
-    for person in people:
+    for person in with_device:
         person_id = str(person.get("entity_id") or "")
         active = person_id in selected
-        source = person.get("source", "Default")
-        
-        # Source badge color
-        source_class = "source-default"
-        if source == "Waze":
-            source_class = "source-waze"
-        elif source == "Entfernung":
-            source_class = "source-distance"
-        
+        state = person.get("state", "unknown")
+
+        # State display
+        state_lower = state.lower()
+        if state_lower in ("home", "zuhause"):
+            state_display = "Zuhause"
+            state_class = "state-home"
+        elif state_lower in ("not_home", "away", "nicht_zuhause"):
+            state_display = "Unterwegs"
+            state_class = "state-away"
+        else:
+            state_display = state.title()
+            state_class = "state-unknown"
+
         rows.append(
             f"""
             <button class="presence-choice {'active' if active else ''}" type="button" data-presence-person="{escape(person_id)}" aria-pressed="{'true' if active else 'false'}">
               <span>
                 <strong>{escape(person.get("name"))}</strong>
                 <small>{escape(person_id)}</small>
-                <span class="source-badge {source_class}">{escape(source)}</span>
+                <span class="state-badge {state_class}">{escape(state_display)}</span>
               </span>
               <em>{'Berücksichtigt' if active else 'Ignoriert'}</em>
             </button>
             """
         )
 
-    guide = f"""
-      <div class="presence-guide">
-        <div class="guide-header">
-          <strong>Quellen konfigurieren</strong>
-        </div>
-        <div class="guide-content">
-          <div class="guide-section">
-            <strong>Default (Person Entity)</strong>
-            <p>Die Home Assistant Person Entities. Aktiviert automatisch, wenn eine Person in deinem Home Assistant konfiguriert ist.</p>
+    # Show persons without devices (greyed out, not selectable)
+    for person in without_device:
+        person_id = str(person.get("entity_id") or "")
+        rows.append(
+            f"""
+            <div class="presence-choice disabled" aria-disabled="true">
+              <span>
+                <strong>{escape(person.get("name"))}</strong>
+                <small>{escape(person_id)}</small>
+                <span class="state-badge state-no-device">Kein Gerät</span>
+              </span>
+              <em>Nicht nutzbar</em>
+            </div>
+            """
+        )
+
+    # Different hints based on situation
+    if not with_device and without_device:
+        # No usable persons - show setup guide
+        guide = """
+          <div class="presence-guide presence-guide-warning">
+            <div class="guide-header">
+              <strong>⚠️ Keine Personen mit GPS-Tracking</strong>
+            </div>
+            <div class="guide-content">
+              <p>Damit die Automatik funktioniert, muss mindestens eine Person ein Gerät mit GPS-Tracking verknüpft haben.</p>
+              <p><strong>So verknüpfst du ein Gerät:</strong></p>
+              <ol>
+                <li>Öffne <strong>Einstellungen → Personen</strong> in Home Assistant</li>
+                <li>Wähle eine Person aus</li>
+                <li>Unter "Geräte zur Standortverfolgung" ein Gerät hinzufügen (z.B. dein Handy über die Companion App)</li>
+              </ol>
+              <p>Die Companion App für <a href="https://companion.home-assistant.io/" target="_blank">iOS/Android</a> ist der einfachste Weg für GPS-Tracking.</p>
+            </div>
           </div>
-          <div class="guide-section">
-            <strong>Waze</strong>
-            <p>Benötigt: <code>waze_entity</code> in der Konfiguration</p>
-            <p>Beispiel: <code>sensor.waze_travel_time_home</code></p>
+        """
+    elif with_device:
+        guide = """
+          <div class="presence-guide">
+            <div class="guide-header">
+              <strong>Hinweis</strong>
+            </div>
+            <div class="guide-content">
+              <p>Die Automatik startet nur, wenn alle berücksichtigten Personen unterwegs sind.</p>
+            </div>
           </div>
-          <div class="guide-section">
-            <strong>Entfernung</strong>
-            <p>Benötigt: <code>distance_entity</code> in der Konfiguration</p>
-            <p>Beispiel: <code>sensor.person_distance_home</code></p>
-          </div>
-        </div>
-      </div>
-    """
+        """
+    else:
+        guide = ""
 
     return f"""
       <div class="presence-picker" data-presence-picker data-presence-entity="{escape(entity_id)}">
