@@ -1189,6 +1189,24 @@
           {{{settings_system}}}
         </div>
       </section>
+
+      <section class="section debug-section">
+        <div class="section-header">
+          <h2>Debug</h2>
+          <button type="button" class="debug-toggle-btn" data-action="toggle-debug">Einblenden</button>
+        </div>
+        <div class="debug-panel" style="display: none;">
+          <div class="debug-row">
+            <strong>Letzte API-Aufrufe:</strong>
+            <pre id="debug-api-log" style="max-height: 200px; overflow: auto; background: var(--panel-soft); padding: 8px; border-radius: 4px; font-size: 11px; margin: 8px 0;">Noch keine Aufrufe.</pre>
+          </div>
+          <div class="debug-row">
+            <strong>Helper Entity States:</strong>
+            <button type="button" data-action="fetch-helper-states" style="margin-left: 8px; font-size: 12px;">Laden</button>
+            <pre id="debug-helper-states" style="max-height: 300px; overflow: auto; background: var(--panel-soft); padding: 8px; border-radius: 4px; font-size: 11px; margin: 8px 0;">Klicke "Laden" um States abzurufen.</pre>
+          </div>
+        </div>
+      </section>
     </section>
   </main>
 
@@ -1213,14 +1231,47 @@
       toastTimer = setTimeout(() => toast.classList.remove("visible"), 1800);
     }
 
+    // Debug logging
+    const debugLog = [];
+    function logApiCall(method, path, payload, response, error) {
+      const entry = {
+        time: new Date().toLocaleTimeString(),
+        method,
+        path,
+        payload,
+        response,
+        error: error ? String(error) : null
+      };
+      debugLog.unshift(entry);
+      if (debugLog.length > 20) debugLog.pop();
+
+      const logEl = document.getElementById("debug-api-log");
+      if (logEl) {
+        logEl.textContent = debugLog.map(e =>
+          `[${e.time}] ${e.method} ${e.path}\n` +
+          (e.payload ? `  Request: ${JSON.stringify(e.payload)}\n` : '') +
+          (e.response ? `  Response: ${JSON.stringify(e.response)}\n` : '') +
+          (e.error ? `  ERROR: ${e.error}\n` : '')
+        ).join('\n');
+      }
+    }
+
     async function postJson(path, payload = null) {
-      const response = await fetch(apiUrl(path), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: payload === null ? null : JSON.stringify(payload)
-      });
-      if (!response.ok) throw new Error(await response.text());
-      return response.json();
+      let response, result, error;
+      try {
+        response = await fetch(apiUrl(path), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload === null ? null : JSON.stringify(payload)
+        });
+        result = await response.json();
+        logApiCall("POST", path, payload, result, null);
+        if (!response.ok) throw new Error(JSON.stringify(result));
+        return result;
+      } catch (err) {
+        logApiCall("POST", path, payload, result, err);
+        throw err;
+      }
     }
 
     document.querySelectorAll("[data-tab]").forEach((button) => {
@@ -1889,6 +1940,57 @@
           btn.style.background = "";
           btn.disabled = false;
         }, 3000);
+      }
+    });
+
+    // Debug panel toggle
+    document.addEventListener("click", async (e) => {
+      const toggleBtn = e.target.closest("[data-action='toggle-debug']");
+      if (toggleBtn) {
+        const panel = document.querySelector(".debug-panel");
+        if (panel) {
+          const isHidden = panel.style.display === "none";
+          panel.style.display = isHidden ? "block" : "none";
+          toggleBtn.textContent = isHidden ? "Ausblenden" : "Einblenden";
+        }
+        return;
+      }
+
+      const fetchBtn = e.target.closest("[data-action='fetch-helper-states']");
+      if (fetchBtn) {
+        fetchBtn.disabled = true;
+        fetchBtn.textContent = "Lädt...";
+        try {
+          const resp = await fetch(apiUrl("/api/summary"));
+          const summary = await resp.json();
+          const statesEl = document.getElementById("debug-helper-states");
+
+          // Extract helper entities and their states
+          const globalStates = summary.states?.global || {};
+          const sensorStates = summary.states?.sensors || {};
+          const status = summary.status || {};
+
+          const output = {
+            "Helper Entities (global)": Object.fromEntries(
+              Object.entries(globalStates).map(([k, v]) => [k, {
+                entity_id: summary.entities?.global?.[k],
+                state: v?.state,
+                exists: v?.state !== undefined && v?.state !== null
+              }])
+            ),
+            "Status Sensor": {
+              state: sensorStates.status?.state,
+              missing_helpers: status.missing_helpers || []
+            },
+            "Options (configured entities)": summary.entities?.global || {}
+          };
+
+          statesEl.textContent = JSON.stringify(output, null, 2);
+        } catch (err) {
+          document.getElementById("debug-helper-states").textContent = "Fehler: " + err;
+        }
+        fetchBtn.disabled = false;
+        fetchBtn.textContent = "Laden";
       }
     });
   </script>
