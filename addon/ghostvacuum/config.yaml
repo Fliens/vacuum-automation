@@ -1,7 +1,7 @@
-name: Vacuum Arrival Automation
-version: "0.1.11"
-slug: vacuum_arrival_automation
-description: Arrival-aware vacuum automation with AppDaemon, history, learning, and dashboards
+name: GhostVacuum
+version: "0.1.12"
+slug: ghostvacuum
+description: Smart vacuum automation that cleans while you're away and finishes before you return
 url: https://github.com/Fliens/vacuum-automation
 arch:
   - aarch64
@@ -16,8 +16,8 @@ homeassistant_api: true
 hassio_api: true
 ingress: true
 ingress_port: 8099
-panel_icon: mdi:robot-vacuum-variant
-panel_title: Vacuum Dashboard
+panel_icon: mdi:ghost
+panel_title: GhostVacuum
 host_network: false
 map:
   - config:rw

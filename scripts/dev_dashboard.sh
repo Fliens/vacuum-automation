@@ -38,7 +38,7 @@ pid_is_dashboard() {
   local command_line
 
   command_line="$(ps -p "${pid}" -o command= 2>/dev/null || true)"
-  [[ "${command_line}" == *"addon/vacuum_arrival_automation/redirect_dashboard.py"* ]]
+  [[ "${command_line}" == *"addon/ghostvacuum/redirect_dashboard.py"* ]]
 }
 
 remove_pid_file_if_current() {
@@ -113,10 +113,10 @@ start_server() {
   ensure_port_available
 
   echo "Starting local vacuum dashboard at http://127.0.0.1:${PORT}"
-  echo "Edit files in addon/vacuum_arrival_automation/dashboard/ and refresh the browser."
+  echo "Edit files in addon/ghostvacuum/dashboard/ and refresh the browser."
   echo "Press Ctrl+C to stop, or run: $0 stop"
 
-  python3 addon/vacuum_arrival_automation/redirect_dashboard.py &
+  python3 addon/ghostvacuum/redirect_dashboard.py &
   local pid="$!"
   echo "${pid}" > "${PID_FILE}"
 
@@ -136,7 +136,7 @@ start_server_detached() {
   mkdir -p "${STATE_DIR}"
   ensure_port_available
 
-  python3 addon/vacuum_arrival_automation/redirect_dashboard.py &
+  python3 addon/ghostvacuum/redirect_dashboard.py &
   local pid="$!"
   echo "${pid}" > "${PID_FILE}"
   echo "Dashboard running at http://127.0.0.1:${PORT} (PID ${pid})."
@@ -144,7 +144,7 @@ start_server_detached() {
 
 watch_fingerprint() {
   {
-    find addon/vacuum_arrival_automation -type f \
+    find addon/ghostvacuum -type f \
       \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.yaml" \) \
       -print0 \
       | LC_ALL=C sort -z \
@@ -163,7 +163,7 @@ watch_server() {
   local last_fingerprint
   last_fingerprint="$(watch_fingerprint)"
 
-  echo "Watching addon/vacuum_arrival_automation for changes..."
+  echo "Watching addon/ghostvacuum for changes..."
   echo "Open http://127.0.0.1:${PORT} and keep this process running."
   echo "Press Ctrl+C to stop watcher and dashboard."
 

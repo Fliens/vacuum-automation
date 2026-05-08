@@ -7,6 +7,7 @@ RUN apk add --no-cache bash \
 COPY run.sh /run.sh
 COPY render_addon_config.py /opt/vacuum_automation/render_addon_config.py
 COPY redirect_dashboard.py /opt/vacuum_automation/redirect_dashboard.py
+COPY helper_setup.py /opt/vacuum_automation/helper_setup.py
 COPY dashboard /opt/vacuum_automation/dashboard
 COPY app /opt/vacuum_automation/app
 

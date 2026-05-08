@@ -31,7 +31,7 @@ LOCAL_SCRIPTS_PATH = Path(__file__).parent / "dashboard" / "scripts.js"
 LOCAL_SETTINGS_PATH = Path(__file__).parent / "dashboard" / "settings.html"
 LOCAL_STATIC_PATH = Path(__file__).parent / "dashboard" / "static"
 MOCK_STATES: dict[str, dict] | None = None
-ADDON_NAME = "Vacuum Arrival Automation"
+ADDON_NAME = "GhostVacuum"
 DEFAULT_PRESENCE_ENTITIES = ["person.resident_1"]
 WEEKDAY_OPTIONS = [
     ("mon", "Mo"),
@@ -2559,10 +2559,119 @@ def render_settings_presence(summary: dict) -> str:
             """
         )
 
+    # Get current tracking config
+    options = summary.get("options", {})
+    waze_entity = options.get("waze_entity", "")
+    distance_entity = options.get("distance_entity", "")
+
+    # Determine current tracking mode
+    if waze_entity:
+        current_mode = "waze"
+        current_mode_name = "Waze Travel Time"
+    elif distance_entity:
+        current_mode = "distance"
+        current_mode_name = "Distanz-Sensor"
+    else:
+        current_mode = "default"
+        current_mode_name = "Standard (Distanz-Schätzung)"
+
+    # Build the tracking explanation section
+    tracking_info = f"""
+      <div class="tracking-section">
+        <div class="tracking-header">
+          <strong>Aktuelles Rückkehr-Tracking</strong>
+          <span class="tracking-mode-badge tracking-mode-{current_mode}">{escape(current_mode_name)}</span>
+        </div>
+        <div class="tracking-content">
+          <div class="tracking-current">
+            {'<p><strong>Waze Entity:</strong> <code>' + escape(waze_entity) + '</code></p>' if waze_entity else ''}
+            {'<p><strong>Distanz Entity:</strong> <code>' + escape(distance_entity) + '</code></p>' if distance_entity else ''}
+            {'''<p>Die Rückkehrzeit wird anhand der <strong>Luftlinie</strong> und der konfigurierten Fallback-Geschwindigkeit geschätzt.
+            Das ist ungenau, da Verkehr und tatsächliche Routen nicht berücksichtigt werden.</p>''' if current_mode == "default" else ''}
+            {'''<p>Die Rückkehrzeit wird anhand der <strong>Entfernung</strong> und der Fallback-Geschwindigkeit berechnet.
+            Genauer als Luftlinie, aber Verkehr wird nicht berücksichtigt.</p>''' if current_mode == "distance" else ''}
+            {'''<p>Die Rückkehrzeit wird <strong>live von Waze</strong> berechnet - inklusive aktuellem Verkehr und optimaler Route.
+            Das ist die genaueste Methode!</p>''' if current_mode == "waze" else ''}
+          </div>
+        </div>
+      </div>
+
+      <details class="tracking-details">
+        <summary><strong>Tracking verbessern</strong> – Genauere Rückkehrzeit-Berechnung einrichten</summary>
+
+        <div class="tracking-modes">
+          <div class="tracking-mode {'tracking-mode-active' if current_mode == 'default' else ''}">
+            <div class="tracking-mode-header">
+              <span class="tracking-mode-icon">📍</span>
+              <div>
+                <strong>Standard (Luftlinie)</strong>
+                <span class="tracking-mode-tag">Keine Konfiguration nötig</span>
+              </div>
+            </div>
+            <div class="tracking-mode-body">
+              <p><strong>Wie es funktioniert:</strong> Berechnet die Luftlinie zwischen deinem Standort und Zuhause, dann wird mit der Fallback-Geschwindigkeit (Standard: 30 km/h) die Zeit geschätzt.</p>
+              <p><strong>Genauigkeit:</strong> ⭐ Niedrig – Ignoriert Straßen, Umwege und Verkehr.</p>
+              <p><strong>Einrichtung:</strong> Funktioniert automatisch mit der Companion App.</p>
+            </div>
+          </div>
+
+          <div class="tracking-mode {'tracking-mode-active' if current_mode == 'distance' else ''}">
+            <div class="tracking-mode-header">
+              <span class="tracking-mode-icon">📏</span>
+              <div>
+                <strong>Distanz-Sensor</strong>
+                <span class="tracking-mode-tag">Einfache Einrichtung</span>
+              </div>
+            </div>
+            <div class="tracking-mode-body">
+              <p><strong>Wie es funktioniert:</strong> Nutzt einen Distanz-Sensor (z.B. von der Companion App), der die Entfernung zu einer Zone misst.</p>
+              <p><strong>Genauigkeit:</strong> ⭐⭐ Mittel – Besser als Luftlinie, aber kein Verkehr.</p>
+              <p><strong>Einrichtung:</strong></p>
+              <ol>
+                <li>In der Companion App: <strong>Einstellungen → Companion App → Sensoren verwalten</strong></li>
+                <li>Aktiviere <strong>"Geocoded Location"</strong> oder erstelle einen Template-Sensor</li>
+                <li>Trage den Sensor in der Add-on-Konfiguration ein: <code>distance_entity: sensor.dein_distanz_sensor</code></li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="tracking-mode tracking-mode-recommended {'tracking-mode-active' if current_mode == 'waze' else ''}">
+            <div class="tracking-mode-header">
+              <span class="tracking-mode-icon">🚗</span>
+              <div>
+                <strong>Waze Travel Time</strong>
+                <span class="tracking-mode-tag tracking-mode-tag-recommended">Empfohlen</span>
+              </div>
+            </div>
+            <div class="tracking-mode-body">
+              <p><strong>Wie es funktioniert:</strong> Fragt live die Waze-API nach der tatsächlichen Fahrzeit ab – inklusive Verkehr, Baustellen und optimaler Route.</p>
+              <p><strong>Genauigkeit:</strong> ⭐⭐⭐ Hoch – Berücksichtigt Echtzeit-Verkehr!</p>
+              <p><strong>Einrichtung:</strong></p>
+              <ol>
+                <li>Füge die <strong>Waze Travel Time Integration</strong> hinzu:
+                  <br><code>Einstellungen → Geräte & Dienste → Integration hinzufügen → Waze Travel Time</code></li>
+                <li>Konfiguriere:
+                  <ul>
+                    <li><strong>Name:</strong> z.B. "Reisezeit nach Hause"</li>
+                    <li><strong>Ursprung:</strong> <code>person.dein_name</code> (deine Person-Entity)</li>
+                    <li><strong>Ziel:</strong> <code>zone.home</code></li>
+                    <li><strong>Region:</strong> EU</li>
+                  </ul>
+                </li>
+                <li>Trage den Sensor in der Add-on-Konfiguration ein:
+                  <br><code>waze_entity: sensor.reisezeit_nach_hause</code></li>
+              </ol>
+              <p class="tracking-mode-note">💡 <strong>Tipp:</strong> Die Waze-Integration aktualisiert sich automatisch alle paar Minuten. Bei mehreren Personen kannst du für jede einen eigenen Waze-Sensor erstellen.</p>
+            </div>
+          </div>
+        </div>
+      </details>
+    """
+
     # Different hints based on situation
     if not with_device and without_device:
         # No usable persons - show setup guide
-        guide = """
+        device_guide = """
           <div class="presence-guide presence-guide-warning">
             <div class="guide-header">
               <strong>⚠️ Keine Personen mit GPS-Tracking</strong>
@@ -2571,33 +2680,34 @@ def render_settings_presence(summary: dict) -> str:
               <p>Damit die Automatik funktioniert, muss mindestens eine Person ein Gerät mit GPS-Tracking verknüpft haben.</p>
               <p><strong>So verknüpfst du ein Gerät:</strong></p>
               <ol>
+                <li>Installiere die <a href="https://companion.home-assistant.io/" target="_blank">Home Assistant Companion App</a> auf deinem Handy</li>
                 <li>Öffne <strong>Einstellungen → Personen</strong> in Home Assistant</li>
-                <li>Wähle eine Person aus</li>
-                <li>Unter "Geräte zur Standortverfolgung" ein Gerät hinzufügen (z.B. dein Handy über die Companion App)</li>
+                <li>Wähle deine Person aus</li>
+                <li>Unter "Geräte zur Standortverfolgung" dein Handy hinzufügen</li>
               </ol>
-              <p>Die Companion App für <a href="https://companion.home-assistant.io/" target="_blank">iOS/Android</a> ist der einfachste Weg für GPS-Tracking.</p>
             </div>
           </div>
         """
     elif with_device:
-        guide = """
+        device_guide = """
           <div class="presence-guide">
             <div class="guide-header">
-              <strong>Hinweis</strong>
+              <strong>Funktionsweise</strong>
             </div>
             <div class="guide-content">
-              <p>Die Automatik startet nur, wenn alle berücksichtigten Personen unterwegs sind.</p>
+              <p>Die Automatik startet nur, wenn <strong>alle berücksichtigten Personen</strong> unterwegs sind. Sobald eine Person nach Hause kommt, wird die Reinigung abgebrochen.</p>
             </div>
           </div>
         """
     else:
-        guide = ""
+        device_guide = ""
 
     return f"""
       <div class="presence-picker" data-presence-picker data-presence-entity="{escape(entity_id)}">
         {''.join(rows)}
       </div>
-      {guide}
+      {device_guide}
+      {tracking_info}
     """
 
 
@@ -4129,6 +4239,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/set_text":
             self._handle_set_text()
             return
+        if parsed.path == "/api/recreate_helpers":
+            self._handle_recreate_helpers()
+            return
+        if parsed.path == "/api/cleanup_helpers":
+            self._handle_cleanup_helpers()
+            return
         self.send_response(404)
         self.end_headers()
 
@@ -4277,6 +4393,57 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._json_response({"ok": True})
         except urllib.error.HTTPError as err:
             self._json_response({"ok": False, "error": str(err)}, status=502)
+        except Exception as err:
+            self._json_response({"ok": False, "error": str(err)}, status=500)
+
+    def _handle_recreate_helpers(self):
+        """Trigger recreation of missing helper entities."""
+        import subprocess
+
+        options = load_options()
+        helper_prefix = options.get("helper_prefix", "vacuum_automation")
+
+        try:
+            # Run the helper_setup script with --check flag
+            result = subprocess.run(
+                ["python", "/opt/vacuum_automation/helper_setup.py", "--check"],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            self._json_response({
+                "ok": result.returncode == 0,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+            })
+        except subprocess.TimeoutExpired:
+            self._json_response({"ok": False, "error": "timeout"}, status=504)
+        except FileNotFoundError:
+            self._json_response({"ok": False, "error": "helper_setup.py not found"}, status=500)
+        except Exception as err:
+            self._json_response({"ok": False, "error": str(err)}, status=500)
+
+    def _handle_cleanup_helpers(self):
+        """Delete all helper entities created by this add-on."""
+        import subprocess
+
+        try:
+            # Run the helper_setup script with --cleanup flag
+            result = subprocess.run(
+                ["python", "/opt/vacuum_automation/helper_setup.py", "--cleanup"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            self._json_response({
+                "ok": result.returncode == 0,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+            })
+        except subprocess.TimeoutExpired:
+            self._json_response({"ok": False, "error": "timeout"}, status=504)
+        except FileNotFoundError:
+            self._json_response({"ok": False, "error": "helper_setup.py not found"}, status=500)
         except Exception as err:
             self._json_response({"ok": False, "error": str(err)}, status=500)
 

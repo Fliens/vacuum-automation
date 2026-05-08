@@ -55,26 +55,24 @@ This creates:
 Use `setup/travel_pause_zone.yaml` as an example and replace it with your own city or
 region if you want long-trip pausing.
 
-## Path B: Use the Supervisor Add-on Scaffold
+## Path B: Use the GhostVacuum Add-on
 
-The folder `addon/vacuum_arrival_automation/` contains a first Supervisor add-on
-packaging of the project.
+The folder `addon/ghostvacuum/` contains the Supervisor add-on.
 
 It bundles:
 
 - the AppDaemon app
 - generated AppDaemon config
-- generated helper package
+- automatic helper creation via Home Assistant API
 - an ingress dashboard inside the add-on sidebar entry
 
 High-level flow:
 
-1. add the repo as an add-on repository
-2. install the add-on
-3. fill in the add-on options for your entities and room segment IDs
-4. start the add-on so it can generate `/config/appdaemon/apps/vacuum_arrival_automation.yaml`
-5. import `/config/vacuum_arrival_automation/helpers.generated.yaml`
-6. enable the add-on sidebar entry and open the built-in dashboard
+1. Add the repo as an add-on repository
+2. Install the add-on
+3. Fill in the add-on options for your entities and room segment IDs
+4. Start the add-on - helpers are created automatically
+5. Enable the add-on sidebar entry and open the built-in dashboard
 
 The most important option fields are:
 
@@ -88,7 +86,7 @@ The most important option fields are:
 - `max_distance_km`
 - `rooms`
 
-For long trips, there are now two separate controls:
+For long trips, there are two separate controls:
 
 - `travel_pause_radius_km`: local radius around your home point; if you stay outside it for longer than `travel_pause_after_hours`, travel mode activates
 - `max_distance_km`: hard safety limit from home; once exceeded, travel mode activates immediately
