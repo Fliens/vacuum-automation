@@ -827,11 +827,12 @@ def available_presence_entities(configured: List[str], options: dict = None) -> 
     for state in all_states():
         entity_id = str(state.get("entity_id") or "")
         
-        # Only include person/device_tracker entities, or sensor entities if explicitly configured
-        is_person_or_tracker = entity_id.startswith(("person.", "device_tracker."))
+        # Only include person entities, or sensor entities if explicitly configured
+        # device_tracker entities are too granular and technical for presence selection
+        is_person = entity_id.startswith("person.")
         is_tracked_sensor = entity_id == waze_entity or entity_id == distance_entity
-        
-        if not (is_person_or_tracker or is_tracked_sensor):
+
+        if not (is_person or is_tracked_sensor):
             continue
         
         attrs = state.get("attributes", {}) if isinstance(state.get("attributes"), dict) else {}
@@ -843,7 +844,7 @@ def available_presence_entities(configured: List[str], options: dict = None) -> 
             source = "Waze"
         elif entity_id == distance_entity:
             source = "Entfernung"
-        elif not entity_id.startswith("person.") and not entity_id.startswith("device_tracker."):
+        elif not entity_id.startswith("person."):
             source = "Sensor"
         
         people.append(
@@ -870,7 +871,7 @@ def available_presence_entities(configured: List[str], options: dict = None) -> 
                     "source": source,
                 }
             )
-    return sorted(people, key=lambda item: (not item["entity_id"].startswith("person."), item["name"].lower()))
+    return sorted(people, key=lambda item: item["name"].lower())
 
 
 def room_segment_catalog(vacuum_state: Any, configured_rooms: List[dict], room_names: dict) -> List[dict]:
