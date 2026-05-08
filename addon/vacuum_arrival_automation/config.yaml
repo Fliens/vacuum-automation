@@ -29,6 +29,7 @@ options:
   dashboard_path: ""
   presence_entities: |
     - person.resident_1
+  selected_presence_entities_entity: input_text.vacuum_automation_selected_presence_entities
   person_entity: person.resident_1
   travel_person_entity: person.resident_1
   waze_entity: sensor.travel_time_to_home
@@ -71,7 +72,7 @@ options:
   home_override_enabled: false
   home_latitude: 52.52
   home_longitude: 13.405
-  travel_pause_radius_km: 25
+  travel_pause_radius_km: 100
   max_distance_km: 0
   travel_mode_enabled: true
   start_notifications_enabled: false
@@ -117,6 +118,7 @@ schema:
   notify_service: str?
   dashboard_path: str
   presence_entities: str
+  selected_presence_entities_entity: str
   person_entity: str
   travel_person_entity: str
   waze_entity: str?

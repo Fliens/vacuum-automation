@@ -185,7 +185,6 @@
       font-size: 12px;
       font-weight: 600;
     }
-    code { display: none; }
     .switch {
       display: inline-grid;
       grid-template-columns: 44px auto;
@@ -298,6 +297,122 @@
       border-color: var(--accent);
       color: #fff;
     }
+    .presence-picker {
+      display: grid;
+      gap: 10px;
+    }
+    .presence-picker.saving {
+      opacity: 0.68;
+    }
+    .presence-choice {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 58px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-soft);
+      color: var(--ink);
+      text-align: left;
+      cursor: pointer;
+    }
+    .presence-choice span {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+    .presence-choice small {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      overflow-wrap: anywhere;
+    }
+    .presence-choice em {
+      flex: 0 0 auto;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 11px;
+      font-style: normal;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .presence-choice.active {
+      background: var(--accent-soft);
+      border-color: rgba(34, 122, 85, 0.28);
+    }
+    .presence-choice.active strong {
+      color: var(--accent-strong);
+    }
+    .presence-choice.active em {
+      background: rgba(34, 122, 85, 0.18);
+      color: var(--accent-strong);
+    }
+    .source-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .source-default {
+      background: rgba(99, 112, 106, 0.15);
+      color: var(--muted);
+    }
+    .source-waze {
+      background: rgba(34, 122, 200, 0.15);
+      color: #0275d8;
+    }
+    .source-distance {
+      background: rgba(167, 101, 34, 0.15);
+      color: var(--warning);
+    }
+    .presence-guide {
+      margin-top: 16px;
+      padding: 12px;
+      background: var(--panel-soft);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .guide-header {
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--ink);
+    }
+    .guide-content {
+      display: grid;
+      gap: 10px;
+    }
+    .guide-section {
+      padding: 8px;
+      background: var(--panel);
+      border-radius: 5px;
+      border-left: 3px solid var(--line);
+    }
+    .guide-section strong {
+      display: block;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+    .guide-section p {
+      margin: 0;
+      line-height: 1.5;
+    }
+    .guide-section code {
+      background: var(--line);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: monospace;
+      font-size: 11px;
+    }
     .room-settings-card {
       display: grid;
       gap: 12px;
@@ -317,22 +432,69 @@
     }
     .room-settings-head {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       gap: 12px;
       padding-right: 34px;
-    }
-    .room-settings-head > div {
-      display: grid;
-      gap: 3px;
-      min-width: 0;
-      flex: 1;
-    }
+      flex-wrap: nowrap;
+      }
+      .room-settings-head > .room-info {
+        display: grid;
+        gap: 3px;
+        min-width: 0;
+        flex: 1;
+      }
+      .room-settings-head > .room-actions {
+        flex-shrink: 0;
+        display: flex;
+        gap: 8px;
+      }
+      .room-settings-head > .room-actions .status-button {
+        white-space: nowrap;
+      }
     .room-title-line {
       display: flex;
       align-items: center;
       gap: 8px;
       flex-wrap: wrap;
+    }
+    .room-name-editable {
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: background 120ms ease;
+    }
+    .room-name-editable:hover {
+      background: rgba(34, 122, 85, 0.1);
+    }
+    .room-name-editable.editing {
+      padding: 0;
+    }
+    .room-name-editable.editing input {
+      border: none;
+      background: transparent;
+      padding: 2px 6px;
+      font: inherit;
+      color: inherit;
+      outline: 1px solid var(--accent-strong);
+      border-radius: 3px;
+    }
+    .room-name-edit-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 14px;
+      cursor: pointer;
+      padding: 4px 6px;
+      margin: -4px -6px;
+      opacity: 0;
+      transition: opacity 120ms ease, color 120ms ease;
+    }
+    .room-title-line:hover .room-name-edit-btn {
+      opacity: 1;
+    }
+    .room-name-edit-btn:hover {
+      color: var(--accent-strong);
     }
     .room-settings-card.dragging {
       display: none;
@@ -407,6 +569,10 @@
       font-weight: 750;
       cursor: pointer;
       white-space: nowrap;
+      display: inline-block !important;
+    }
+    .room-settings-head > .status-button {
+      flex-shrink: 0;
     }
     .status-button.on {
       background: var(--accent-soft);
@@ -675,8 +841,8 @@
     <nav class="tabs" aria-label="Einstellungsbereiche">
       <button class="tab-button active" type="button" data-tab="general">Allgemein</button>
       <button class="tab-button" type="button" data-tab="return">Reise & Rückkehr</button>
+      <button class="tab-button" type="button" data-tab="people">Personen</button>
       <button class="tab-button" type="button" data-tab="rooms">Räume</button>
-      <button class="tab-button" type="button" data-tab="push">Push</button>
       <button class="tab-button" type="button" data-tab="system">System</button>
     </nav>
 
@@ -692,6 +858,14 @@
             {{{settings_schedule}}}
             {{{settings_weekdays}}}
           </div>
+      </section>
+      <section class="section">
+        <div class="section-header">
+          <h2>Push</h2>
+        </div>
+        <div class="settings-list">
+          {{{settings_push}}}
+        </div>
       </section>
     </section>
 
@@ -720,6 +894,16 @@
       </section>
     </section>
 
+    <section class="tab-panel" data-panel="people">
+      <section class="section">
+        <div class="section-header">
+          <h2>Bewohner</h2>
+          <p>Diese Personen steuern Anwesenheit, Rückkehrfenster und Reisemodus.</p>
+        </div>
+        {{{settings_presence}}}
+      </section>
+    </section>
+
     <section class="tab-panel" data-panel="rooms">
       <section class="section">
         <div class="section-header">
@@ -728,17 +912,6 @@
         </div>
         <div class="room-list">
           {{{settings_rooms}}}
-        </div>
-      </section>
-    </section>
-
-    <section class="tab-panel" data-panel="push">
-      <section class="section">
-        <div class="section-header">
-          <h2>Push</h2>
-        </div>
-        <div class="settings-list">
-          {{{settings_push}}}
         </div>
       </section>
     </section>
@@ -883,6 +1056,38 @@
         } catch (error) {
           showToast("Konnte nicht speichern");
           toggleButton.classList.remove("saving");
+        }
+        return;
+      }
+
+      const presenceButton = event.target.closest("[data-presence-person]");
+      if (presenceButton) {
+        const picker = presenceButton.closest("[data-presence-picker]");
+        const buttons = Array.from(picker.querySelectorAll("[data-presence-person]"));
+        presenceButton.classList.toggle("active");
+        presenceButton.setAttribute("aria-pressed", presenceButton.classList.contains("active") ? "true" : "false");
+        const selected = buttons.filter((button) => button.classList.contains("active"));
+        if (!selected.length) {
+          presenceButton.classList.add("active");
+          presenceButton.setAttribute("aria-pressed", "true");
+          showToast("Mindestens eine Person auswählen");
+          return;
+        }
+        buttons.forEach((button) => {
+          const label = button.querySelector("em");
+          if (label) label.textContent = button.classList.contains("active") ? "Berücksichtigt" : "Ignoriert";
+        });
+        picker.classList.add("saving");
+        try {
+          await postJson("/api/set_text", {
+            entity_id: picker.dataset.presenceEntity,
+            value: selected.map((button) => button.dataset.presencePerson).join(",")
+          });
+          showToast("Gespeichert");
+          picker.classList.remove("saving");
+        } catch (error) {
+          showToast("Konnte nicht speichern");
+          window.location.reload();
         }
         return;
       }
@@ -1313,6 +1518,66 @@
     }
 
     initRoomDrag();
+
+    // Room name inline editing
+    document.addEventListener("click", (event) => {
+      const editBtn = event.target.closest(".room-name-edit-btn");
+      const nameEl = event.target.closest(".room-name-editable");
+      
+      if (!editBtn && !nameEl) return;
+      const nameElement = editBtn?.closest(".room-title-line")?.querySelector(".room-name-editable") || nameEl;
+      if (!nameElement || nameElement.classList.contains("editing")) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      
+      const currentValue = nameElement.textContent;
+      const segmentId = nameElement.dataset.segmentId;
+      const roomNamesEntity = nameElement.dataset.roomNamesEntity;
+      
+      nameElement.classList.add("editing");
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = currentValue;
+      nameElement.innerHTML = "";
+      nameElement.appendChild(input);
+      input.focus();
+      input.select();
+
+      async function saveChange() {
+        const newValue = input.value.trim() || currentValue;
+        nameElement.classList.remove("editing");
+        nameElement.innerHTML = newValue;
+        
+        if (newValue === currentValue) return;
+
+        try {
+          await postJson("/api/set_text", {
+            entity_id: roomNamesEntity,
+            value: newValue,
+            segment_id: segmentId
+          });
+          showToast("Name gespeichert");
+        } catch (error) {
+          showToast("Konnte Namen nicht speichern");
+          nameElement.innerHTML = currentValue;
+        }
+      }
+
+      function cancelEdit() {
+        nameElement.classList.remove("editing");
+        nameElement.innerHTML = currentValue;
+      }
+
+      input.addEventListener("blur", saveChange);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          input.blur();
+        } else if (e.key === "Escape") {
+          cancelEdit();
+        }
+      });
+    });
   </script>
 </body>
 </html>

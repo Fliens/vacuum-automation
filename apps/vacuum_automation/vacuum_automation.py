@@ -38,6 +38,9 @@ class VacuumAutomation(hass.Hass):
         self.presence_entities = (
             list(configured_presence) if configured_presence else [self.presence_entity]
         )
+        self.selected_presence_entities_entity = self.args.get(
+            "selected_presence_entities_entity"
+        )
 
         self.person_entity = self.args.get("person_entity", self.presence_entity)
         self.travel_person_entity = self.args.get(
@@ -93,7 +96,7 @@ class VacuumAutomation(hass.Hass):
         self.home_override_enabled = bool(self.args.get("home_override_enabled", False))
         self.home_latitude = self.args.get("home_latitude")
         self.home_longitude = self.args.get("home_longitude")
-        self.travel_pause_radius_km = float(self.args.get("travel_pause_radius_km", 25))
+        self.travel_pause_radius_km = float(self.args.get("travel_pause_radius_km", 100))
         self.max_distance_km = float(self.args.get("max_distance_km", 0))
         self.travel_mode_enabled = bool(self.args.get("travel_mode_enabled", True))
         self.start_notifications_enabled = bool(
@@ -173,6 +176,7 @@ class VacuumAutomation(hass.Hass):
         self.abort_requested = False
         self.history_entries: List[dict] = []
         self.learned_durations: Dict[str, float] = {}
+        self._presence_listener_entities: set[str] = set()
 
         self._load_history_storage()
         self._load_state()
@@ -188,8 +192,7 @@ class VacuumAutomation(hass.Hass):
             self.monitor_interval_min * 60,
         )
 
-        for entity_id in self.presence_entities:
-            self.listen_state(self._on_presence_change, entity_id)
+        self._ensure_presence_listeners()
         self.listen_state(
             self._on_person_state_change,
             self.travel_person_entity,
@@ -435,6 +438,7 @@ class VacuumAutomation(hass.Hass):
             for entity_id in [
                 self.start_hour_entity,
                 self.end_hour_entity,
+                self.selected_presence_entities_entity,
                 self.return_buffer_entity,
                 self.fallback_speed_entity,
                 self.default_travel_time_entity,
@@ -453,6 +457,22 @@ class VacuumAutomation(hass.Hass):
     def _presence_state(self, entity_id: str) -> str:
         return str(self.get_state(entity_id) or "unknown")
 
+    def _current_presence_entities(self) -> List[str]:
+        if not self.selected_presence_entities_entity:
+            return self.presence_entities
+        raw = str(self.get_state(self.selected_presence_entities_entity) or "").strip()
+        if not raw:
+            return self.presence_entities
+        selected = [item.strip() for item in raw.replace(";", ",").split(",") if item.strip()]
+        return selected or self.presence_entities
+
+    def _ensure_presence_listeners(self):
+        for entity_id in set(self.presence_entities) | set(self._current_presence_entities()):
+            if not entity_id or entity_id in self._presence_listener_entities:
+                continue
+            self.listen_state(self._on_presence_change, entity_id)
+            self._presence_listener_entities.add(entity_id)
+
     def _is_home_like_state(self, state: str) -> bool:
         return state.lower() in {"home", "on"}
 
@@ -462,19 +482,19 @@ class VacuumAutomation(hass.Hass):
     def _is_anyone_home(self) -> bool:
         return any(
             self._is_home_like_state(self._presence_state(entity_id))
-            for entity_id in self.presence_entities
+            for entity_id in self._current_presence_entities()
         )
 
     def _is_everyone_away(self) -> bool:
         return all(
             self._is_away_like_state(self._presence_state(entity_id))
-            for entity_id in self.presence_entities
+            for entity_id in self._current_presence_entities()
         )
 
     def _presence_summary(self) -> List[dict]:
         return [
             self._person_presence_summary(entity_id)
-            for entity_id in self.presence_entities
+            for entity_id in self._current_presence_entities()
         ]
 
     def _person_presence_summary(self, entity_id: str) -> dict:
@@ -1362,6 +1382,7 @@ class VacuumAutomation(hass.Hass):
             "icon": "mdi:robot-vacuum-variant",
             "reason": reason,
             "presence_entities": self.presence_entities,
+            "selected_presence_entities": self._current_presence_entities(),
             "presence_summary": self._presence_summary(),
             "vacuum_entity": self.vacuum_entity,
             "travel_person_entity": self.travel_person_entity,
@@ -1537,6 +1558,7 @@ class VacuumAutomation(hass.Hass):
             self._abort_cleaning("Automatik wurde deaktiviert")
 
     def _on_runtime_setting_change(self, entity, attribute, old, new, kwargs):
+        self._ensure_presence_listeners()
         self._evaluate_travel_mode()
         self._publish_dashboard_state("einstellung")
         if self.active_room:

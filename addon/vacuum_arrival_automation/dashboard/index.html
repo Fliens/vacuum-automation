@@ -12,10 +12,11 @@
         <section class="card hero-card" aria-label="Staubsauger">
           <div class="hero-header">
             <div class="hero-robot">
-              <span class="hero-robot-icon {{{hero_status_class}}}">{{{hero_status_icon}}}</span>
               <div class="hero-robot-info">
-                <span class="hero-robot-title">{{{hero_status_title}}}</span>
-                <span class="hero-robot-sub">{{{hero_status_sub}}}</span>
+                <div class="hero-title-row">
+                  <span class="hero-robot-title">{{{hero_status_title}}}</span>
+                  <span class="hero-automation-pill {{{hero_automation_class}}}">{{{hero_automation_text}}}</span>
+                </div>
               </div>
             </div>
             <a class="hero-settings-btn" href="/settings" aria-label="Einstellungen" title="Einstellungen">⚙️</a>
@@ -37,30 +38,28 @@
           </div>
 
           <div class="hero-settings-list">
-            <div class="hero-setting-chip {{{hero_start_push_class}}}" aria-label="Start-Push {{{hero_start_push_text}}}" title="Start-Push {{{hero_start_push_text}}}">
-              <span class="hero-setting-label">Start-Push</span>
-              <span class="hero-setting-status">{{{hero_start_push_text}}}</span>
-            </div>
-            <div class="hero-setting-chip {{{hero_return_push_class}}}" aria-label="Rückkehr-Push {{{hero_return_push_text}}}" title="Rückkehr-Push {{{hero_return_push_text}}}">
-              <span class="hero-setting-label">Rückkehr-Push</span>
-              <span class="hero-setting-status">{{{hero_return_push_text}}}</span>
-            </div>
-            <div class="hero-setting-chip {{{hero_travel_class}}}" aria-label="Reiselogik {{{hero_travel_text}}}" title="Reiselogik {{{hero_travel_text}}}">
-              <span class="hero-setting-label">Reiselogik</span>
-              <span class="hero-setting-status">{{{hero_travel_text}}}</span>
-            </div>
-            <div class="hero-setting-chip on" aria-label="Zeitfenster {{{hero_schedule_text}}}" title="Zeitfenster {{{hero_schedule_text}}}">
+            <div class="hero-setting-chip {{{hero_schedule_class}}}" data-hero-setting="schedule" aria-label="Zeitfenster {{{hero_schedule_text}}}" title="Zeitfenster {{{hero_schedule_text}}}">
               <span class="hero-setting-label">Zeitfenster</span>
               <span class="hero-setting-status">{{{hero_schedule_text}}}</span>
             </div>
-            <div class="hero-setting-chip on" aria-label="Wochentage {{{hero_weekdays_text}}}" title="Wochentage {{{hero_weekdays_text}}}">
+            <div class="hero-setting-chip {{{hero_weekdays_class}}}" data-hero-setting="weekdays" aria-label="Wochentage {{{hero_weekdays_text}}}" title="Wochentage {{{hero_weekdays_text}}}">
               <span class="hero-setting-label">Wochentage</span>
               <span class="hero-setting-status">{{{hero_weekdays_text}}}</span>
             </div>
           </div>
+
+          {{{state_machine}}}
         </section>
 
-        {{{state_machine}}}
+        <section class="card queue-card" aria-label="Nächste Räume">
+          <div class="section-header">
+            <h2>Reinigungsplan</h2>
+          </div>
+          <div class="room-list" data-room-list data-return-window="{{return_window_min}}">
+            {{{room_sections}}}
+          </div>
+          <p class="override-note">Räume innerhalb eines Abschnitts ziehen, um sie einmalig vorzuziehen. Zwischen den Abschnitten ziehen, um den Status zu überschreiben.</p>
+        </section>
 
         <section class="card presence-card" aria-label="Anwesenheit">
           <div class="section-header">
@@ -90,15 +89,6 @@
       </div>
 
       <div class="dashboard-right">
-        <section class="card queue-card" aria-label="Nächste Räume">
-          <div class="section-header">
-            <h2>Reinigungsplan</h2>
-          </div>
-          <div class="room-list" data-room-list data-return-window="{{return_window_min}}">
-            {{{room_sections}}}
-          </div>
-          <p class="override-note">Räume innerhalb eines Abschnitts ziehen, um sie einmalig vorzuziehen. Zwischen den Abschnitten ziehen, um den Status zu überschreiben.</p>
-        </section>
         <section class="card history-card" aria-label="Historie">
           <div class="section-header">
             <h2>Historie</h2>

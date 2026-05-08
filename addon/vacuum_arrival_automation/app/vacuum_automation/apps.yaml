@@ -15,6 +15,7 @@ vacuum_automation:
   presence_entities:
     - person.resident_1
     - person.resident_2
+  selected_presence_entities_entity: input_text.vacuum_automation_selected_presence_entities
 
   # Travel source: this person/entity is used for distance and ETA.
   # Usually the main person who receives the push and whose commute matters most.

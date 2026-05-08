@@ -46,71 +46,10 @@
       box-shadow: var(--shadow);
     }
     .state-machine-card {
-      padding: 12px;
+      padding: 10px 12px 12px;
       display: grid;
-      gap: 10px;
-      overflow: hidden;
-    }
-    .state-machine-compact .sm-grid {
-      display: grid;
-      grid-template-columns: 1fr 220px;
-      gap: 16px;
-      align-items: center;
-    }
-    .state-machine-compact .sm-pills {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      align-items: flex-start;
-      position: relative;
-    }
-    .state-machine-compact .pill {
-      display: inline-flex;
-      align-items: center;
       gap: 8px;
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: var(--panel-soft);
-      color: var(--muted);
-      border: 1px solid var(--line);
-      position: relative;
-      min-width: 180px;
-    }
-    .state-machine-compact .pill.ok {
-      background: var(--accent-soft);
-      color: var(--accent-strong);
-      border-color: rgba(34,122,85,0.14);
-      box-shadow: 0 4px 10px rgba(34,122,85,0.06);
-    }
-    /* horizontal connector from pill to target */
-    .state-machine-compact .pill::after {
-      content: "";
-      position: absolute;
-      right: -120px;
-      top: 50%;
-      width: 100px;
-      height: 2px;
-      background: var(--line);
-      transform: translateY(-50%);
-    }
-    .state-machine-compact .pill.ok::after {
-      background: var(--accent);
-      box-shadow: 0 0 8px rgba(34,122,85,0.12);
-    }
-    .state-machine-compact .sm-target {
-      padding: 12px 14px;
-      border-radius: 10px;
-      background: var(--panel-soft);
-      border: 1px solid var(--line);
-      text-align: center;
-      font-weight: 750;
-      color: var(--muted);
-    }
-    .state-machine-compact .sm-target.ok {
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
-      box-shadow: 0 8px 18px rgba(34,122,85,0.12);
+      overflow: hidden;
     }
     .state-live-indicator {
       display: inline-flex;
@@ -127,67 +66,228 @@
       background: var(--accent);
       box-shadow: 0 0 0 3px rgba(34, 122, 85, 0.12);
     }
-    .state-decision-tree {
+    .hero-conditions {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid rgba(34, 122, 85, 0.18);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(228, 243, 236, 0.72), rgba(255, 255, 255, 0.72));
+    }
+    .hero-conditions-head {
       display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .state-node {
-      display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 6px 9px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: var(--panel-soft);
+      justify-content: space-between;
+      gap: 10px;
       color: var(--muted);
-      transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
-    }
-    .state-node.visited {
-      background: var(--accent-soft);
-      border-color: rgba(34, 122, 85, 0.14);
-      color: var(--accent-strong);
-    }
-    .state-node.guard {
-      background: var(--warning-soft);
-      border-color: rgba(167, 101, 34, 0.14);
-    }
-    .state-node.dimmed {
-      opacity: 0.64;
-    }
-    .state-node.active {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: white;
-      box-shadow: 0 6px 14px rgba(34, 122, 85, 0.16);
-    }
-    .state-node.active[data-state-key="travel"],
-    .state-node.active[data-state-key="aborting"] {
-      background: var(--warning);
-      border-color: var(--warning);
-      box-shadow: 0 6px 14px rgba(167, 101, 34, 0.16);
-    }
-    .state-node.active[data-state-key="paused"],
-    .state-node.active[data-state-key="home"] {
-      background: var(--danger);
-      border-color: var(--danger);
-      box-shadow: 0 6px 14px rgba(178, 76, 61, 0.14);
-    }
-    .state-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 999px;
-      background: currentColor;
-      opacity: 0.72;
-    }
-    .state-node.active .state-dot {
-      opacity: 1;
-      box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.2);
-    }
-    .state-label {
       font-size: 10px;
       font-weight: 750;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .hero-condition-states {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      min-width: 0;
+    }
+    .hero-condition-state {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      max-width: 150px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0;
+      line-height: 1.2;
+      text-transform: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .hero-condition-state.ready {
+      color: var(--accent-strong);
+      background: rgba(34, 122, 85, 0.12);
+    }
+    .hero-condition-state.cleaning {
+      color: #216aa6;
+      background: rgba(42, 127, 199, 0.12);
+    }
+    .hero-condition-state.blocked {
+      color: var(--warning);
+      background: var(--warning-soft);
+    }
+    .hero-condition-state.next {
+      color: var(--accent-strong);
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(34, 122, 85, 0.18);
+    }
+    .hero-conditions .stage {
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+    .hero-conditions .jobs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .hero-conditions .job {
+      min-height: 28px;
+      min-width: 0;
+      max-width: 100%;
+      padding: 5px 9px;
+      border-color: rgba(34, 122, 85, 0.26);
+      box-shadow: 0 1px 2px rgba(21, 32, 25, 0.03);
+    }
+    .hero-conditions .job-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    /* GitLab-style pipeline layout */
+    .state-machine-pipeline .pipeline {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) 16px minmax(0, 0.68fr) 16px minmax(0, 0.56fr);
+      align-items: flex-start;
+      gap: 0;
+      padding: 2px 0 6px;
+      overflow-x: hidden;
+      overflow-y: hidden;
+    }
+    .stage {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding: 6px;
+      position: relative;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.64);
+    }
+    .stage-title {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 750;
+      line-height: 1.2;
+      padding: 0 0 1px 2px;
+      white-space: nowrap;
+    }
+    .stage.ok {
+      border-color: rgba(34, 122, 85, 0.24);
+      background: rgba(228, 243, 236, 0.36);
+    }
+    .jobs {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .job {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+      min-height: 24px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 600;
+      background: var(--panel);
+      color: var(--muted);
+      border: 1px solid var(--line);
+      transition: all 120ms ease;
+      white-space: nowrap;
+      position: relative;
+    }
+    .job.ok {
+      background: var(--panel);
+      border-color: rgba(34, 122, 85, 0.35);
+      color: var(--accent-strong);
+    }
+    .job.running {
+      background: var(--panel);
+      border-color: rgba(42, 127, 199, 0.38);
+      color: #216aa6;
+    }
+    .job.pending {
+      background: var(--panel);
+      border-color: var(--line);
+      color: var(--muted);
+    }
+    .job.failed {
+      background: var(--danger-soft);
+      border-color: rgba(178, 76, 61, 0.35);
+      color: var(--danger);
+    }
+    .job-icon {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      border: 1px solid currentColor;
+      color: inherit;
+      font-size: 9px;
+      font-weight: 800;
       line-height: 1;
+    }
+    .job.ok .job-icon::before {
+      content: "✓";
+    }
+    .job.running .job-icon::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+    .job.pending .job-icon::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: currentColor;
+      opacity: 0.35;
+    }
+    .job.failed .job-icon::before {
+      content: "!";
+    }
+    .job-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+    .connector {
+      height: 2px;
+      background: var(--line);
+      position: relative;
+      margin: 31px 2px 0;
+      min-width: 0;
+    }
+    .connector::after {
+      content: "";
+      position: absolute;
+      right: -1px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 0;
+      height: 0;
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+      border-left: 6px solid var(--line);
+    }
+    .connector.ok {
+      background: var(--accent);
+    }
+    .connector.ok::after {
+      border-left-color: var(--accent);
+    }
+    .stage.ok .stage-title {
+      color: var(--accent);
     }
     /* Hero card - Robot status & settings */
     .hero-card {
@@ -205,36 +305,53 @@
     .hero-robot {
       display: flex;
       align-items: center;
-      gap: 12px;
       flex: 1;
       min-width: 0;
     }
-    .hero-robot-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
-      display: grid;
-      place-items: center;
-      font-size: 22px;
-      flex-shrink: 0;
-    }
-    .hero-robot-icon.idle { background: var(--panel-soft); }
-    .hero-robot-icon.cleaning { background: var(--accent-soft); }
-    .hero-robot-icon.error { background: var(--danger-soft); }
     .hero-robot-info {
       display: flex;
       flex-direction: column;
       gap: 2px;
       min-width: 0;
     }
+    .hero-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
     .hero-robot-title {
       font-size: 15px;
       font-weight: 700;
       color: var(--ink);
     }
-    .hero-robot-sub {
-      font-size: 12px;
+    .hero-automation-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-height: 20px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .hero-automation-pill::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+    .hero-automation-pill.on {
+      color: var(--accent-strong);
+      background: rgba(34, 122, 85, 0.12);
+    }
+    .hero-automation-pill.off {
       color: var(--muted);
+      background: var(--panel-soft);
     }
     .hero-settings-btn {
       width: 32px;
@@ -301,20 +418,6 @@
     .hero-level-value.warning { color: var(--warning); }
     .hero-level-value.error { color: var(--danger); }
     .hero-level-value.unavailable { color: var(--muted); }
-    .hero-level-bar {
-      width: 50px;
-      height: 6px;
-      background: var(--line);
-      border-radius: 3px;
-      overflow: hidden;
-    }
-    .hero-level-fill {
-      height: 100%;
-      border-radius: 3px;
-      background: var(--accent);
-    }
-    .hero-level-fill.warning { background: var(--warning); }
-    .hero-level-fill.error { background: var(--danger); }
     .hero-level-empty {
       color: var(--muted);
       font-size: 12px;
@@ -1050,4 +1153,3 @@
         width: 100%;
       }
     }
-  </style>

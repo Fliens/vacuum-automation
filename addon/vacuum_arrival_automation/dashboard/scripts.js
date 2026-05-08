@@ -321,6 +321,12 @@
       return ["home", "zuhause"].includes(String(person?.state || "").toLowerCase());
     }
 
+    function numberValue(value, fallback = null) {
+      if (value === undefined || value === null || value === "" || value === "unknown" || value === "unavailable") return fallback;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    }
+
     function activeRoomLabel(summary) {
       const active = stateValue(summary?.states?.sensors?.active_room, "");
       return ["", "-", "keine", "keiner", "none"].includes(active.toLowerCase()) ? "" : active;
@@ -340,42 +346,152 @@
         });
     }
 
+    function activeWeekdayKeys(summary) {
+      const raw = stateValue(summary?.states?.global?.active_weekdays, "mon,tue,wed,thu,fri,sat");
+      return new Set(String(raw || "mon,tue,wed,thu,fri,sat").replace(/;/g, ",").split(",").map((part) => part.trim().toLowerCase()).filter(Boolean));
+    }
+
+    function currentWeekdayKey() {
+      return ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][new Date().getDay()];
+    }
+
+    function isInTimeWindow(startHour, endHour) {
+      const now = new Date();
+      const currentHour = now.getHours() + now.getMinutes() / 60;
+      return startHour <= endHour
+        ? currentHour >= startHour && currentHour < endHour
+        : currentHour >= startHour || currentHour < endHour;
+    }
+
     function deriveContext(summary) {
       const sensors = summary?.states?.sensors || {};
       const globalStates = summary?.states?.global || {};
       const status = summary?.status || {};
       const statusKey = stateValue(sensors.status, "Warten").toLowerCase();
       const activeRoom = activeRoomLabel(summary);
+      const activeAttrs = sensors.active_room?.attributes || {};
+      const vacuum = summary?.states?.vacuum || {};
+      const vacuumAttrs = vacuum.attributes || {};
+      const vacuumState = stateValue(vacuum, "").toLowerCase();
+      const robotSignals = summary?.states?.robot?.signals || {};
       const nextRoom = orderedRooms(summary)[0] || null;
       const enabled = stateValue(globalStates.enabled, status.enabled || "on").toLowerCase();
       const people = Array.isArray(status.presence_summary) ? status.presence_summary : [];
       const homePeople = people.filter(personIsHome);
+      const startHour = numberValue(stateValue(globalStates.start_hour, ""), status?.time_window?.start_hour ?? 8);
+      const endHour = numberValue(stateValue(globalStates.end_hour, ""), status?.time_window?.end_hour ?? 22);
+      const returnWindow = numberValue(stateValue(sensors.return_window, ""), 0) || 0;
+      const returnBuffer = numberValue(stateValue(globalStates.return_buffer, ""), status.return_buffer_min ?? 5) || 0;
 
       const automation_active = enabled !== "off";
       const nobody_home = homePeople.length === 0;
       const travel_inactive = !status.travel_mode_active && !statusKey.includes("reisemodus");
-      const manual_inactive = !activeRoom;
+      const manual_cleaning_active = ["cleaning", "returning", "paused"].includes(vacuumState) && !activeRoom;
+      const manual_inactive = !manual_cleaning_active;
+      const room_selected = Boolean(nextRoom);
+      const cleaning_active = Boolean(activeRoom);
+      const aborting = statusKey.includes("abbruch");
+      const completed = status.reason === "raum_fertig";
+      const planned = numberValue(activeAttrs.planned_duration_min, 0);
+      const remaining = numberValue(activeAttrs.remaining_min, 0);
+      const progress = planned > 0 ? Math.max(0, Math.min(100, ((planned - remaining) / planned) * 100)) : 0;
+      const relevantDuration = activeRoom ? remaining : (numberValue(nextRoom?.effective_duration_min, 0) || 0);
+      const battery = numberValue(vacuumAttrs.battery_level ?? vacuumAttrs.battery ?? stateValue(robotSignals.battery_level, ""), null);
+      const errorSignal = robotSignals.error || {};
+      const errorValue = String(errorSignal.attributes?.value || stateValue(errorSignal, "") || vacuumAttrs.error || "").toLowerCase();
+      const errorOk = ["", "no_error", "none", "unknown", "unavailable"].includes(errorValue);
+      const robot_ready = !["", "unknown", "unavailable", "error"].includes(vacuumState) && errorOk && (battery === null || battery >= 20);
+      const weekday_matches = activeWeekdayKeys(summary).has(currentWeekdayKey());
+      const time_window_active = isInTimeWindow(startHour || 0, endHour || 22);
+      const window_sufficient = relevantDuration > 0 && returnWindow >= relevantDuration + returnBuffer;
+      const prerequisites_ok = automation_active && robot_ready && weekday_matches && time_window_active && window_sufficient && nobody_home && travel_inactive && manual_inactive;
+      let stateText = "Blockiert";
+      let stateClass = "blocked";
+      if (activeRoom) {
+        stateText = `Reinigt ${activeRoom} · ${Math.round(progress)}%`;
+        stateClass = "cleaning";
+      } else if (aborting) {
+        stateText = "Abbruch";
+      } else if (prerequisites_ok) {
+        stateText = "Bereit";
+        stateClass = "ready";
+      }
+      const automationText = automation_active ? "Automation aktiv" : "Automation inaktiv";
 
       return {
-        pills: {
-          automation_active,
-          nobody_home,
-          travel_inactive,
-          manual_inactive,
+        automationText,
+        automationClass: automation_active ? "on" : "off",
+        scheduleActive: time_window_active,
+        weekdaysActive: weekday_matches,
+        stateText,
+        stateClass,
+        nextRoomName: nextRoom?.room || "",
+        jobs: {
+          robot_ready: robot_ready ? "ok" : "failed",
+          window_sufficient: window_sufficient ? "ok" : "failed",
+          nobody_home: nobody_home ? "ok" : "failed",
+          travel_inactive: travel_inactive ? "ok" : "failed",
+          manual_inactive: manual_inactive ? "ok" : "failed",
+          planning_ready: prerequisites_ok ? "ok" : "pending",
+          room_selected: room_selected ? "ok" : "pending",
+          cleaning_active: cleaning_active && !aborting ? "running" : "pending",
+          aborting: aborting ? "failed" : "pending",
+          completed: completed ? "ok" : "pending",
         },
       };
     }
 
     function applyContext(context) {
-      const pills = context.pills || {};
-      Object.entries(pills).forEach(([key, ok]) => {
-        const el = root.querySelector(`[data-pill-key="${key}"]`);
+      const jobs = context.jobs || {};
+      const automationEl = document.querySelector(".hero-automation-pill");
+      if (automationEl && context.automationText) {
+        automationEl.textContent = context.automationText;
+        automationEl.classList.toggle("on", context.automationClass === "on");
+        automationEl.classList.toggle("off", context.automationClass === "off");
+      }
+      const scheduleEl = document.querySelector('[data-hero-setting="schedule"]');
+      if (scheduleEl) {
+        scheduleEl.classList.toggle("on", Boolean(context.scheduleActive));
+      }
+      const weekdaysEl = document.querySelector('[data-hero-setting="weekdays"]');
+      if (weekdaysEl) {
+        weekdaysEl.classList.toggle("on", Boolean(context.weekdaysActive));
+      }
+      const currentStateEl = root.querySelector(".hero-condition-state.current");
+      if (currentStateEl) {
+        currentStateEl.textContent = context.stateText || "";
+        currentStateEl.classList.toggle("ready", context.stateClass === "ready");
+        currentStateEl.classList.toggle("cleaning", context.stateClass === "cleaning");
+        currentStateEl.classList.toggle("blocked", context.stateClass === "blocked");
+      }
+      const statesEl = root.querySelector(".hero-condition-states");
+      let nextStateEl = root.querySelector(".hero-condition-state.next");
+      if (statesEl && context.nextRoomName) {
+        if (!nextStateEl) {
+          nextStateEl = document.createElement("strong");
+          nextStateEl.className = "hero-condition-state next";
+          statesEl.appendChild(nextStateEl);
+        }
+        nextStateEl.textContent = `Nächstes: ${context.nextRoomName}`;
+      } else if (nextStateEl) {
+        nextStateEl.remove();
+      }
+      
+      Object.entries(jobs).forEach(([key, state]) => {
+        const el = root.querySelector(`[data-check-key="${key}"]`);
         if (!el) return;
-        el.classList.toggle("ok", Boolean(ok));
+        el.classList.toggle("ok", state === "ok");
+        el.classList.toggle("failed", state === "failed");
+        el.classList.toggle("running", state === "running");
+        el.classList.toggle("pending", state === "pending");
       });
-      const allOk = Object.values(pills).every(Boolean);
-      const cleaning = root.querySelector("[data-cleaning-node]");
-      if (cleaning) cleaning.classList.toggle("ok", allOk);
+      
+      const stageElements = root.querySelectorAll(".stage");
+      stageElements.forEach((stageEl) => {
+        const stageJobs = stageEl.querySelectorAll(".job");
+        const allJobsOk = Array.from(stageJobs).every(job => job.classList.contains("ok"));
+        stageEl.classList.toggle("ok", allJobsOk);
+      });
     }
 
     async function refresh() {

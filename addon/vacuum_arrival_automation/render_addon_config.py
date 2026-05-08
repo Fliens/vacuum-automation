@@ -186,6 +186,10 @@ def default_options(raw_options: Dict[str, Any]) -> Dict[str, Any]:
         "notify_service": normalize_str(raw_options.get("notify_service")),
         "dashboard_path": normalize_str(raw_options.get("dashboard_path")) or "",
         "presence_entities": parse_presence_entities(raw_options.get("presence_entities")),
+        "selected_presence_entities_entity": normalize_str(
+            raw_options.get("selected_presence_entities_entity")
+        )
+        or f"input_text.{helper_prefix}_selected_presence_entities",
         "person_entity": normalize_str(raw_options.get("person_entity")) or "person.resident_1",
         "travel_person_entity": normalize_str(raw_options.get("travel_person_entity"))
         or normalize_str(raw_options.get("person_entity"))
@@ -276,7 +280,7 @@ def default_options(raw_options: Dict[str, Any]) -> Dict[str, Any]:
         "home_latitude": float(raw_options.get("home_latitude", 52.52)),
         "home_longitude": float(raw_options.get("home_longitude", 13.405)),
         "travel_pause_radius_km": float(
-            raw_options.get("travel_pause_radius_km", 25)
+            raw_options.get("travel_pause_radius_km", 100)
         ),
         "max_distance_km": float(raw_options.get("max_distance_km", 0)),
         "travel_mode_enabled": bool(raw_options.get("travel_mode_enabled", True)),
@@ -300,6 +304,9 @@ def build_app_config(options: Dict[str, Any]) -> Dict[str, Any]:
         "vacuum_entity": options["vacuum_entity"],
         "dashboard_path": options["dashboard_path"],
         "presence_entities": options["presence_entities"],
+        "selected_presence_entities_entity": options[
+            "selected_presence_entities_entity"
+        ],
         "person_entity": options["person_entity"],
         "travel_person_entity": options["travel_person_entity"],
         "home_zone": options["home_zone"],
@@ -389,6 +396,9 @@ def build_helpers(options: Dict[str, Any]) -> Dict[str, Any]:
     active_weekdays_object = helper_object_id(
         options["active_weekdays_entity"], "input_text"
     )
+    selected_presence_object = helper_object_id(
+        options["selected_presence_entities_entity"], "input_text"
+    )
     enabled_object = helper_object_id(options["enabled_entity"], "input_boolean")
     learning_object = helper_object_id(
         options["learning_enabled_entity"], "input_boolean"
@@ -444,6 +454,11 @@ def build_helpers(options: Dict[str, Any]) -> Dict[str, Any]:
             "name": "Vacuum Active Weekdays",
             "max": 64,
             "initial": options["active_weekdays"],
+        },
+        selected_presence_object: {
+            "name": "Vacuum Selected Residents",
+            "max": 255,
+            "initial": ",".join(options["presence_entities"]),
         },
     }
 
