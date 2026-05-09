@@ -2,7 +2,7 @@ ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base-python:3.13-alpine3.22
 FROM ${BUILD_FROM}
 
 RUN apk add --no-cache bash \
-    && pip install --no-cache-dir appdaemon pyyaml
+    && pip install --no-cache-dir appdaemon pyyaml websockets
 
 COPY run.sh /run.sh
 COPY render_addon_config.py /opt/vacuum_automation/render_addon_config.py

@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""Automatically create Home Assistant Helper entities via API.
+"""Automatically create Home Assistant Helper entities via WebSocket API.
 
 This script checks if the required Helper entities exist and creates them
-via the Home Assistant API if they don't. This eliminates the need for
-users to manually import helpers.yaml into their configuration.
+via the Home Assistant WebSocket API if they don't. This eliminates the need
+for users to manually import helpers.yaml into their configuration.
+
+Helper creation in Home Assistant requires the WebSocket API, not REST.
+The add-on connects via ws://supervisor/core/websocket using SUPERVISOR_TOKEN.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
@@ -20,9 +24,17 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
+try:
+    import websockets
+    from websockets.client import connect as ws_connect
+    HAS_WEBSOCKETS = True
+except ImportError:
+    HAS_WEBSOCKETS = False
+
 
 OPTIONS_PATH = Path("/data/options.json")
 SUPERVISOR_CORE_API = "http://supervisor/core/api"
+SUPERVISOR_WS_API = "ws://supervisor/core/websocket"
 DEFAULT_HELPER_PREFIX = "vacuum_automation"
 
 # Helper definitions for the core automation
@@ -283,324 +295,153 @@ def entity_exists(entity_id: str) -> bool:
     return result is not None
 
 
-def create_input_boolean(
-    entity_id_suffix: str,
-    name: str,
-    icon: str = "mdi:toggle-switch",
-    initial: bool = False,
-    prefix: str = DEFAULT_HELPER_PREFIX,
-) -> bool:
-    """Create an input_boolean helper entity."""
-    entity_id = f"input_boolean.{prefix}_{entity_id_suffix}"
+class WebSocketHelper:
+    """Helper class for WebSocket communication with Home Assistant."""
 
-    if entity_exists(entity_id):
-        print(f"[helper_setup] {entity_id} already exists, skipping")
-        return True
+    def __init__(self):
+        self.ws = None
+        self.msg_id = 0
+        self.token = os.environ.get("SUPERVISOR_TOKEN", "")
 
-    payload = {
-        "name": name,
-        "icon": icon,
-        "initial": initial,
-    }
+    async def connect(self) -> bool:
+        """Connect to Home Assistant WebSocket API."""
+        if not HAS_WEBSOCKETS:
+            print("[helper_setup] websockets library not installed")
+            return False
 
-    result = api_request(
-        "/config/config_entries/helper",
-        method="POST",
-        payload={
-            "platform": "input_boolean",
-            "name": name,
-            "icon": icon,
-        },
-    )
+        if not self.token:
+            print("[helper_setup] No SUPERVISOR_TOKEN found")
+            return False
 
-    if result is None:
-        # Fallback: Try using the REST API to create via services
-        # This sets an initial state which effectively creates the entity
-        print(f"[helper_setup] Trying alternative creation for {entity_id}")
-        return create_helper_via_rest(
-            "input_boolean",
-            prefix,
-            entity_id_suffix,
-            name,
-            icon,
-            "on" if initial else "off",
+        try:
+            self.ws = await ws_connect(SUPERVISOR_WS_API)
+
+            # Wait for auth_required message
+            msg = await self.ws.recv()
+            data = json.loads(msg)
+            if data.get("type") != "auth_required":
+                print(f"[helper_setup] Unexpected message: {data}")
+                return False
+
+            # Send auth
+            await self.ws.send(json.dumps({
+                "type": "auth",
+                "access_token": self.token,
+            }))
+
+            # Wait for auth_ok
+            msg = await self.ws.recv()
+            data = json.loads(msg)
+            if data.get("type") != "auth_ok":
+                print(f"[helper_setup] Auth failed: {data}")
+                return False
+
+            print("[helper_setup] WebSocket connected successfully")
+            return True
+
+        except Exception as e:
+            print(f"[helper_setup] WebSocket connection failed: {e}")
+            return False
+
+    async def close(self):
+        """Close the WebSocket connection."""
+        if self.ws:
+            await self.ws.close()
+            self.ws = None
+
+    async def send_command(self, msg_type: str, **kwargs) -> dict | None:
+        """Send a command and wait for the response."""
+        if not self.ws:
+            return None
+
+        self.msg_id += 1
+        message = {
+            "id": self.msg_id,
+            "type": msg_type,
+            **kwargs,
+        }
+
+        try:
+            await self.ws.send(json.dumps(message))
+            response = await self.ws.recv()
+            return json.loads(response)
+        except Exception as e:
+            print(f"[helper_setup] WebSocket command failed: {e}")
+            return None
+
+    async def create_input_boolean(
+        self,
+        name: str,
+        icon: str = "mdi:toggle-switch",
+        initial: bool = False,
+    ) -> dict | None:
+        """Create an input_boolean helper."""
+        return await self.send_command(
+            "input_boolean/create",
+            name=name,
+            icon=icon,
+            initial_state=initial,
         )
 
-    print(f"[helper_setup] Created {entity_id}")
-    return True
-
-
-def create_input_number(
-    entity_id_suffix: str,
-    name: str,
-    min_val: float,
-    max_val: float,
-    step: float = 1,
-    mode: str = "box",
-    unit_of_measurement: str = "",
-    initial: float = 0,
-    prefix: str = DEFAULT_HELPER_PREFIX,
-) -> bool:
-    """Create an input_number helper entity."""
-    entity_id = f"input_number.{prefix}_{entity_id_suffix}"
-
-    if entity_exists(entity_id):
-        print(f"[helper_setup] {entity_id} already exists, skipping")
-        return True
-
-    result = api_request(
-        "/config/config_entries/helper",
-        method="POST",
-        payload={
-            "platform": "input_number",
+    async def create_input_number(
+        self,
+        name: str,
+        min_val: float,
+        max_val: float,
+        step: float = 1,
+        mode: str = "box",
+        unit_of_measurement: str = "",
+        initial: float = 0,
+    ) -> dict | None:
+        """Create an input_number helper."""
+        payload = {
             "name": name,
             "min": min_val,
             "max": max_val,
             "step": step,
             "mode": mode,
-            "unit_of_measurement": unit_of_measurement,
-            "initial": initial,
-        },
-    )
+        }
+        if unit_of_measurement:
+            payload["unit_of_measurement"] = unit_of_measurement
+        if initial is not None:
+            payload["initial"] = initial
 
-    if result is None:
-        print(f"[helper_setup] Trying alternative creation for {entity_id}")
-        return create_helper_via_rest(
-            "input_number",
-            prefix,
-            entity_id_suffix,
-            name,
-            None,
-            str(initial),
-            extra={
-                "min": min_val,
-                "max": max_val,
-                "step": step,
-                "mode": mode,
-                "unit_of_measurement": unit_of_measurement,
-            },
-        )
+        return await self.send_command("input_number/create", **payload)
 
-    print(f"[helper_setup] Created {entity_id}")
-    return True
-
-
-def create_input_text(
-    entity_id_suffix: str,
-    name: str,
-    max_len: int = 255,
-    initial: str = "",
-    prefix: str = DEFAULT_HELPER_PREFIX,
-) -> bool:
-    """Create an input_text helper entity."""
-    entity_id = f"input_text.{prefix}_{entity_id_suffix}"
-
-    if entity_exists(entity_id):
-        print(f"[helper_setup] {entity_id} already exists, skipping")
-        return True
-
-    result = api_request(
-        "/config/config_entries/helper",
-        method="POST",
-        payload={
-            "platform": "input_text",
+    async def create_input_text(
+        self,
+        name: str,
+        max_len: int = 255,
+        min_len: int = 0,
+        initial: str = "",
+        mode: str = "text",
+    ) -> dict | None:
+        """Create an input_text helper."""
+        payload = {
             "name": name,
             "max": max_len,
-            "initial": initial,
-        },
-    )
+            "min": min_len,
+            "mode": mode,
+        }
+        if initial:
+            payload["initial"] = initial
 
-    if result is None:
-        print(f"[helper_setup] Trying alternative creation for {entity_id}")
-        return create_helper_via_rest(
-            "input_text",
-            prefix,
-            entity_id_suffix,
-            name,
-            None,
-            initial,
-            extra={"max": max_len},
+        return await self.send_command("input_text/create", **payload)
+
+    async def list_helpers(self, helper_type: str) -> list | None:
+        """List all helpers of a given type."""
+        result = await self.send_command(f"{helper_type}/list")
+        if result and result.get("success"):
+            return result.get("result", [])
+        return None
+
+    async def delete_helper(self, helper_type: str, helper_id: str) -> bool:
+        """Delete a helper by its ID."""
+        result = await self.send_command(
+            f"{helper_type}/delete",
+            **{f"{helper_type}_id": helper_id},
         )
-
-    print(f"[helper_setup] Created {entity_id}")
-    return True
-
-
-def create_helper_via_rest(
-    domain: str,
-    prefix: str,
-    suffix: str,
-    name: str,
-    icon: Optional[str],
-    initial_value: str,
-    extra: Optional[dict] = None,
-) -> bool:
-    """Create a helper by directly posting to the REST API.
-
-    This is a fallback method that creates helpers using the
-    input_*.reload and services API.
-    """
-    entity_id = f"{domain}.{prefix}_{suffix}"
-
-    # Build the helper configuration
-    config: Dict[str, Any] = {"name": name}
-    if icon:
-        config["icon"] = icon
-    if extra:
-        config.update(extra)
-
-    # For input_text and input_number, we need to try the WebSocket API
-    # or config entry API approach. Since we can't use WebSocket directly,
-    # we'll try the config/config_entries approach with different payload
-
-    # Try creating via the helper config entry endpoint with explicit object_id
-    payload = {
-        "platform": domain.replace("input_", ""),
-        "name": name,
-    }
-
-    if icon:
-        payload["icon"] = icon
-    if extra:
-        payload.update(extra)
-
-    result = api_request(
-        f"/config/config_entries/helper",
-        method="POST",
-        payload=payload,
-    )
-
-    if result and "entry_id" in result:
-        print(f"[helper_setup] Created {entity_id} via config entry")
-        return True
-
-    # If still failing, log and continue - the helper might need manual creation
-    print(f"[helper_setup] Could not auto-create {entity_id} - may need manual setup")
-    return False
-
-
-def setup_core_helpers(prefix: str) -> int:
-    """Create all core helper entities needed by the automation."""
-    created = 0
-
-    print("[helper_setup] Setting up input_text helpers...")
-    for helper in CORE_INPUT_TEXT_HELPERS:
-        if create_input_text(
-            entity_id_suffix=helper["id"],
-            name=helper["name"],
-            max_len=helper.get("max", 255),
-            initial=helper.get("initial", ""),
-            prefix=prefix,
-        ):
-            created += 1
-
-    print("[helper_setup] Setting up input_boolean helpers...")
-    for helper in CORE_INPUT_BOOLEAN_HELPERS:
-        if create_input_boolean(
-            entity_id_suffix=helper["id"],
-            name=helper["name"],
-            icon=helper.get("icon", "mdi:toggle-switch"),
-            initial=helper.get("initial", False),
-            prefix=prefix,
-        ):
-            created += 1
-
-    print("[helper_setup] Setting up input_number helpers...")
-    for helper in CORE_INPUT_NUMBER_HELPERS:
-        if create_input_number(
-            entity_id_suffix=helper["id"],
-            name=helper["name"],
-            min_val=helper.get("min", 0),
-            max_val=helper.get("max", 100),
-            step=helper.get("step", 1),
-            mode=helper.get("mode", "box"),
-            unit_of_measurement=helper.get("unit_of_measurement", ""),
-            initial=helper.get("initial", 0),
-            prefix=prefix,
-        ):
-            created += 1
-
-    return created
-
-
-def setup_room_helpers(rooms: List[dict], prefix: str) -> int:
-    """Create helper entities for each room."""
-    created = 0
-
-    for room in rooms:
-        room_id = room["id"]
-        room_name = room["name"]
-        room_icon = room.get("icon", "mdi:floor-plan")
-
-        # Room enabled toggle
-        if create_input_boolean(
-            entity_id_suffix=f"{room_id}_enabled",
-            name=f"Vacuum {room_name} Enabled",
-            icon=room_icon,
-            initial=room.get("enabled", True),
-            prefix=prefix,
-        ):
-            created += 1
-
-        # Room weight
-        if create_input_number(
-            entity_id_suffix=f"{room_id}_weight",
-            name=f"Vacuum {room_name} Weight",
-            min_val=0.1,
-            max_val=3,
-            step=0.05,
-            mode="box",
-            initial=room.get("weight", 1.0),
-            prefix=prefix,
-        ):
-            created += 1
-
-        # Room interval
-        if create_input_number(
-            entity_id_suffix=f"{room_id}_interval_h",
-            name=f"Vacuum {room_name} Interval",
-            min_val=6,
-            max_val=168,
-            step=1,
-            unit_of_measurement="h",
-            mode="box",
-            initial=room.get("interval_h", 48),
-            prefix=prefix,
-        ):
-            created += 1
-
-        # Room duration
-        if create_input_number(
-            entity_id_suffix=f"{room_id}_duration_min",
-            name=f"Vacuum {room_name} Duration",
-            min_val=1,
-            max_val=120,
-            step=1,
-            unit_of_measurement="min",
-            mode="box",
-            initial=room.get("duration_min", 15),
-            prefix=prefix,
-        ):
-            created += 1
-
-    return created
-
-
-def wait_for_home_assistant(max_retries: int = 30, delay: float = 2.0) -> bool:
-    """Wait for Home Assistant to be ready before creating helpers."""
-    print("[helper_setup] Waiting for Home Assistant to be ready...")
-
-    for i in range(max_retries):
-        result = api_request("/")
-        if result is not None:
-            print("[helper_setup] Home Assistant is ready")
-            return True
-
-        print(f"[helper_setup] Waiting... ({i + 1}/{max_retries})")
-        time.sleep(delay)
-
-    print("[helper_setup] Timeout waiting for Home Assistant")
-    return False
+        return result is not None and result.get("success", False)
 
 
 def get_all_helper_entity_ids(prefix: str, rooms: List[dict]) -> List[str]:
@@ -642,195 +483,348 @@ def get_missing_helpers(prefix: str, rooms: List[dict]) -> List[str]:
     return missing
 
 
-def delete_helper(entity_id: str) -> bool:
-    """Delete a helper entity via the config entries API."""
-    # First, we need to find the config entry ID for this entity
-    # The entity_id format is domain.object_id (e.g., input_boolean.vacuum_automation_enabled)
+async def setup_helpers_async(prefix: str, rooms: List[dict]) -> int:
+    """Create all helper entities using WebSocket API."""
+    ws = WebSocketHelper()
 
-    # Try to get the entity registry to find the config entry
-    result = api_request("/config/entity_registry")
-    if not result:
-        print(f"[helper_setup] Could not fetch entity registry")
-        return False
+    if not await ws.connect():
+        print("[helper_setup] Failed to connect via WebSocket")
+        return 0
 
-    # Find the entity in the registry
-    config_entry_id = None
-    for entity in result:
-        if entity.get("entity_id") == entity_id:
-            config_entry_id = entity.get("config_entry_id")
-            break
+    created = 0
 
-    if not config_entry_id:
-        print(f"[helper_setup] Could not find config entry for {entity_id}")
-        return False
+    try:
+        # Create input_text helpers
+        print("[helper_setup] Setting up input_text helpers...")
+        for helper in CORE_INPUT_TEXT_HELPERS:
+            entity_id = f"input_text.{prefix}_{helper['id']}"
+            if entity_exists(entity_id):
+                print(f"[helper_setup] {entity_id} already exists, skipping")
+                continue
 
-    # Delete the config entry
-    delete_result = api_request(
-        f"/config/config_entries/entry/{config_entry_id}",
-        method="DELETE",
-    )
+            result = await ws.create_input_text(
+                name=helper["name"],
+                max_len=helper.get("max", 255),
+                initial=helper.get("initial", ""),
+            )
 
-    if delete_result is not None:
-        print(f"[helper_setup] Deleted {entity_id}")
-        return True
+            if result and result.get("success"):
+                print(f"[helper_setup] Created {entity_id}")
+                created += 1
+            else:
+                error = result.get("error", {}) if result else {}
+                print(f"[helper_setup] Failed to create {entity_id}: {error}")
 
-    print(f"[helper_setup] Failed to delete {entity_id}")
-    return False
+        # Create input_boolean helpers
+        print("[helper_setup] Setting up input_boolean helpers...")
+        for helper in CORE_INPUT_BOOLEAN_HELPERS:
+            entity_id = f"input_boolean.{prefix}_{helper['id']}"
+            if entity_exists(entity_id):
+                print(f"[helper_setup] {entity_id} already exists, skipping")
+                continue
+
+            result = await ws.create_input_boolean(
+                name=helper["name"],
+                icon=helper.get("icon", "mdi:toggle-switch"),
+                initial=helper.get("initial", False),
+            )
+
+            if result and result.get("success"):
+                print(f"[helper_setup] Created {entity_id}")
+                created += 1
+            else:
+                error = result.get("error", {}) if result else {}
+                print(f"[helper_setup] Failed to create {entity_id}: {error}")
+
+        # Create input_number helpers
+        print("[helper_setup] Setting up input_number helpers...")
+        for helper in CORE_INPUT_NUMBER_HELPERS:
+            entity_id = f"input_number.{prefix}_{helper['id']}"
+            if entity_exists(entity_id):
+                print(f"[helper_setup] {entity_id} already exists, skipping")
+                continue
+
+            result = await ws.create_input_number(
+                name=helper["name"],
+                min_val=helper.get("min", 0),
+                max_val=helper.get("max", 100),
+                step=helper.get("step", 1),
+                mode=helper.get("mode", "box"),
+                unit_of_measurement=helper.get("unit_of_measurement", ""),
+                initial=helper.get("initial", 0),
+            )
+
+            if result and result.get("success"):
+                print(f"[helper_setup] Created {entity_id}")
+                created += 1
+            else:
+                error = result.get("error", {}) if result else {}
+                print(f"[helper_setup] Failed to create {entity_id}: {error}")
+
+        # Create room helpers
+        print(f"[helper_setup] Setting up helpers for {len(rooms)} rooms...")
+        for room in rooms:
+            room_id = room["id"]
+            room_name = room["name"]
+            room_icon = room.get("icon", "mdi:floor-plan")
+
+            # Room enabled toggle
+            entity_id = f"input_boolean.{prefix}_{room_id}_enabled"
+            if not entity_exists(entity_id):
+                result = await ws.create_input_boolean(
+                    name=f"Vacuum {room_name} Enabled",
+                    icon=room_icon,
+                    initial=room.get("enabled", True),
+                )
+                if result and result.get("success"):
+                    print(f"[helper_setup] Created {entity_id}")
+                    created += 1
+                else:
+                    error = result.get("error", {}) if result else {}
+                    print(f"[helper_setup] Failed to create {entity_id}: {error}")
+
+            # Room weight
+            entity_id = f"input_number.{prefix}_{room_id}_weight"
+            if not entity_exists(entity_id):
+                result = await ws.create_input_number(
+                    name=f"Vacuum {room_name} Weight",
+                    min_val=0.1,
+                    max_val=3,
+                    step=0.05,
+                    mode="box",
+                    initial=room.get("weight", 1.0),
+                )
+                if result and result.get("success"):
+                    print(f"[helper_setup] Created {entity_id}")
+                    created += 1
+                else:
+                    error = result.get("error", {}) if result else {}
+                    print(f"[helper_setup] Failed to create {entity_id}: {error}")
+
+            # Room interval
+            entity_id = f"input_number.{prefix}_{room_id}_interval_h"
+            if not entity_exists(entity_id):
+                result = await ws.create_input_number(
+                    name=f"Vacuum {room_name} Interval",
+                    min_val=6,
+                    max_val=168,
+                    step=1,
+                    unit_of_measurement="h",
+                    mode="box",
+                    initial=room.get("interval_h", 48),
+                )
+                if result and result.get("success"):
+                    print(f"[helper_setup] Created {entity_id}")
+                    created += 1
+                else:
+                    error = result.get("error", {}) if result else {}
+                    print(f"[helper_setup] Failed to create {entity_id}: {error}")
+
+            # Room duration
+            entity_id = f"input_number.{prefix}_{room_id}_duration_min"
+            if not entity_exists(entity_id):
+                result = await ws.create_input_number(
+                    name=f"Vacuum {room_name} Duration",
+                    min_val=1,
+                    max_val=120,
+                    step=1,
+                    unit_of_measurement="min",
+                    mode="box",
+                    initial=room.get("duration_min", 15),
+                )
+                if result and result.get("success"):
+                    print(f"[helper_setup] Created {entity_id}")
+                    created += 1
+                else:
+                    error = result.get("error", {}) if result else {}
+                    print(f"[helper_setup] Failed to create {entity_id}: {error}")
+
+    finally:
+        await ws.close()
+
+    return created
 
 
-def cleanup_helpers(prefix: str, rooms: List[dict]) -> int:
+async def cleanup_helpers_async(prefix: str, rooms: List[dict]) -> int:
     """Delete all helper entities created by this add-on."""
-    entity_ids = get_all_helper_entity_ids(prefix, rooms)
+    ws = WebSocketHelper()
+
+    if not await ws.connect():
+        print("[helper_setup] Failed to connect via WebSocket")
+        return 0
+
     deleted = 0
+    entity_ids = get_all_helper_entity_ids(prefix, rooms)
 
-    print(f"[helper_setup] Cleaning up {len(entity_ids)} helper entities...")
+    try:
+        # Get list of all helpers to find their IDs
+        for helper_type in ["input_boolean", "input_number", "input_text"]:
+            helpers = await ws.list_helpers(helper_type)
+            if not helpers:
+                continue
 
-    for entity_id in entity_ids:
-        if entity_exists(entity_id):
-            if delete_helper(entity_id):
-                deleted += 1
+            for helper in helpers:
+                # The helper has an 'id' and a 'name'
+                # We need to match by entity_id pattern
+                helper_id = helper.get("id", "")
+                helper_name = helper.get("name", "")
 
-    print(f"[helper_setup] Deleted {deleted} helper entities")
+                # Check if this helper matches one of ours
+                for entity_id in entity_ids:
+                    if entity_id.startswith(f"{helper_type}."):
+                        # Match by checking if the name matches
+                        if f"{prefix}_" in helper_id or helper_name.startswith("Vacuum"):
+                            if await ws.delete_helper(helper_type, helper_id):
+                                print(f"[helper_setup] Deleted {helper_type}.{helper_id}")
+                                deleted += 1
+                            break
+
+    finally:
+        await ws.close()
+
     return deleted
 
 
-def ensure_helpers_exist(prefix: str, rooms: List[dict]) -> List[str]:
-    """Check for missing helpers and create them. Returns list of recreated entities."""
+async def ensure_helpers_exist_async(prefix: str, rooms: List[dict]) -> List[str]:
+    """Check for missing helpers and create them."""
     missing = get_missing_helpers(prefix, rooms)
 
     if not missing:
+        print("[helper_setup] All helpers exist")
         return []
 
-    print(f"[helper_setup] Found {len(missing)} missing helpers, recreating...")
+    print(f"[helper_setup] Found {len(missing)} missing helpers")
+
+    ws = WebSocketHelper()
+    if not await ws.connect():
+        print("[helper_setup] Failed to connect via WebSocket")
+        return []
+
     recreated = []
 
-    for entity_id in missing:
-        # Parse entity_id to determine type and suffix
-        parts = entity_id.split(".")
-        if len(parts) != 2:
-            continue
+    try:
+        for entity_id in missing:
+            parts = entity_id.split(".")
+            if len(parts) != 2:
+                continue
 
-        domain, object_id = parts
-        # Remove prefix to get the suffix
-        if object_id.startswith(f"{prefix}_"):
+            domain, object_id = parts
+            if not object_id.startswith(f"{prefix}_"):
+                continue
+
             suffix = object_id[len(prefix) + 1:]
-        else:
-            continue
+            result = None
 
-        # Find the helper definition and recreate
-        if domain == "input_text":
-            for helper in CORE_INPUT_TEXT_HELPERS:
-                if helper["id"] == suffix:
-                    if create_input_text(
-                        entity_id_suffix=helper["id"],
-                        name=helper["name"],
-                        max_len=helper.get("max", 255),
-                        initial=helper.get("initial", ""),
-                        prefix=prefix,
-                    ):
-                        recreated.append(entity_id)
-                    break
-
-        elif domain == "input_boolean":
-            # Check core helpers first
-            found = False
-            for helper in CORE_INPUT_BOOLEAN_HELPERS:
-                if helper["id"] == suffix:
-                    if create_input_boolean(
-                        entity_id_suffix=helper["id"],
-                        name=helper["name"],
-                        icon=helper.get("icon", "mdi:toggle-switch"),
-                        initial=helper.get("initial", False),
-                        prefix=prefix,
-                    ):
-                        recreated.append(entity_id)
-                    found = True
-                    break
-
-            # Check room helpers
-            if not found:
-                for room in rooms:
-                    if suffix == f"{room['id']}_enabled":
-                        if create_input_boolean(
-                            entity_id_suffix=suffix,
-                            name=f"Vacuum {room['name']} Enabled",
-                            icon=room.get("icon", "mdi:floor-plan"),
-                            initial=room.get("enabled", True),
-                            prefix=prefix,
-                        ):
-                            recreated.append(entity_id)
+            if domain == "input_text":
+                for helper in CORE_INPUT_TEXT_HELPERS:
+                    if helper["id"] == suffix:
+                        result = await ws.create_input_text(
+                            name=helper["name"],
+                            max_len=helper.get("max", 255),
+                            initial=helper.get("initial", ""),
+                        )
                         break
 
-        elif domain == "input_number":
-            # Check core helpers first
-            found = False
-            for helper in CORE_INPUT_NUMBER_HELPERS:
-                if helper["id"] == suffix:
-                    if create_input_number(
-                        entity_id_suffix=helper["id"],
-                        name=helper["name"],
-                        min_val=helper.get("min", 0),
-                        max_val=helper.get("max", 100),
-                        step=helper.get("step", 1),
-                        mode=helper.get("mode", "box"),
-                        unit_of_measurement=helper.get("unit_of_measurement", ""),
-                        initial=helper.get("initial", 0),
-                        prefix=prefix,
-                    ):
-                        recreated.append(entity_id)
-                    found = True
-                    break
+            elif domain == "input_boolean":
+                # Check core helpers
+                for helper in CORE_INPUT_BOOLEAN_HELPERS:
+                    if helper["id"] == suffix:
+                        result = await ws.create_input_boolean(
+                            name=helper["name"],
+                            icon=helper.get("icon", "mdi:toggle-switch"),
+                            initial=helper.get("initial", False),
+                        )
+                        break
+                else:
+                    # Check room helpers
+                    for room in rooms:
+                        if suffix == f"{room['id']}_enabled":
+                            result = await ws.create_input_boolean(
+                                name=f"Vacuum {room['name']} Enabled",
+                                icon=room.get("icon", "mdi:floor-plan"),
+                                initial=room.get("enabled", True),
+                            )
+                            break
 
-            # Check room helpers
-            if not found:
-                for room in rooms:
-                    room_id = room["id"]
-                    if suffix == f"{room_id}_weight":
-                        if create_input_number(
-                            entity_id_suffix=suffix,
-                            name=f"Vacuum {room['name']} Weight",
-                            min_val=0.1,
-                            max_val=3,
-                            step=0.05,
-                            mode="box",
-                            initial=room.get("weight", 1.0),
-                            prefix=prefix,
-                        ):
-                            recreated.append(entity_id)
+            elif domain == "input_number":
+                # Check core helpers
+                for helper in CORE_INPUT_NUMBER_HELPERS:
+                    if helper["id"] == suffix:
+                        result = await ws.create_input_number(
+                            name=helper["name"],
+                            min_val=helper.get("min", 0),
+                            max_val=helper.get("max", 100),
+                            step=helper.get("step", 1),
+                            mode=helper.get("mode", "box"),
+                            unit_of_measurement=helper.get("unit_of_measurement", ""),
+                            initial=helper.get("initial", 0),
+                        )
                         break
-                    elif suffix == f"{room_id}_interval_h":
-                        if create_input_number(
-                            entity_id_suffix=suffix,
-                            name=f"Vacuum {room['name']} Interval",
-                            min_val=6,
-                            max_val=168,
-                            step=1,
-                            unit_of_measurement="h",
-                            mode="box",
-                            initial=room.get("interval_h", 48),
-                            prefix=prefix,
-                        ):
-                            recreated.append(entity_id)
-                        break
-                    elif suffix == f"{room_id}_duration_min":
-                        if create_input_number(
-                            entity_id_suffix=suffix,
-                            name=f"Vacuum {room['name']} Duration",
-                            min_val=1,
-                            max_val=120,
-                            step=1,
-                            unit_of_measurement="min",
-                            mode="box",
-                            initial=room.get("duration_min", 15),
-                            prefix=prefix,
-                        ):
-                            recreated.append(entity_id)
-                        break
+                else:
+                    # Check room helpers
+                    for room in rooms:
+                        room_id = room["id"]
+                        if suffix == f"{room_id}_weight":
+                            result = await ws.create_input_number(
+                                name=f"Vacuum {room['name']} Weight",
+                                min_val=0.1,
+                                max_val=3,
+                                step=0.05,
+                                mode="box",
+                                initial=room.get("weight", 1.0),
+                            )
+                            break
+                        elif suffix == f"{room_id}_interval_h":
+                            result = await ws.create_input_number(
+                                name=f"Vacuum {room['name']} Interval",
+                                min_val=6,
+                                max_val=168,
+                                step=1,
+                                unit_of_measurement="h",
+                                mode="box",
+                                initial=room.get("interval_h", 48),
+                            )
+                            break
+                        elif suffix == f"{room_id}_duration_min":
+                            result = await ws.create_input_number(
+                                name=f"Vacuum {room['name']} Duration",
+                                min_val=1,
+                                max_val=120,
+                                step=1,
+                                unit_of_measurement="min",
+                                mode="box",
+                                initial=room.get("duration_min", 15),
+                            )
+                            break
 
-    if recreated:
-        print(f"[helper_setup] Recreated {len(recreated)} helpers: {recreated}")
+            if result and result.get("success"):
+                print(f"[helper_setup] Recreated {entity_id}")
+                recreated.append(entity_id)
+            elif result:
+                error = result.get("error", {})
+                print(f"[helper_setup] Failed to recreate {entity_id}: {error}")
+
+    finally:
+        await ws.close()
 
     return recreated
+
+
+def wait_for_home_assistant(max_retries: int = 30, delay: float = 2.0) -> bool:
+    """Wait for Home Assistant to be ready before creating helpers."""
+    print("[helper_setup] Waiting for Home Assistant to be ready...")
+
+    for i in range(max_retries):
+        result = api_request("/")
+        if result is not None:
+            print("[helper_setup] Home Assistant is ready")
+            return True
+
+        print(f"[helper_setup] Waiting... ({i + 1}/{max_retries})")
+        time.sleep(delay)
+
+    print("[helper_setup] Timeout waiting for Home Assistant")
+    return False
 
 
 def main() -> int:
@@ -852,6 +846,11 @@ def main() -> int:
 
     print("[helper_setup] Starting helper management...")
 
+    if not HAS_WEBSOCKETS:
+        print("[helper_setup] ERROR: websockets library not installed")
+        print("[helper_setup] Install it with: pip install websockets")
+        return 1
+
     # Wait for HA to be ready
     if not wait_for_home_assistant():
         print("[helper_setup] Warning: Could not connect to Home Assistant")
@@ -868,29 +867,22 @@ def main() -> int:
 
     if args.cleanup:
         # Cleanup mode - delete all helpers
-        deleted = cleanup_helpers(prefix, rooms)
+        deleted = asyncio.run(cleanup_helpers_async(prefix, rooms))
         print(f"[helper_setup] Cleanup complete, deleted {deleted} helpers")
         return 0
 
     if args.check:
         # Check mode - only recreate missing helpers
-        recreated = ensure_helpers_exist(prefix, rooms)
+        recreated = asyncio.run(ensure_helpers_exist_async(prefix, rooms))
         if recreated:
             print(f"[helper_setup] Recreated {len(recreated)} missing helpers")
         else:
-            print("[helper_setup] All helpers exist")
+            print("[helper_setup] All helpers exist or recreation failed")
         return 0
 
     # Default: Setup mode - create all helpers
-    core_count = setup_core_helpers(prefix)
-    print(f"[helper_setup] Processed {core_count} core helpers")
-
-    if rooms:
-        room_count = setup_room_helpers(rooms, prefix)
-        print(f"[helper_setup] Processed {room_count} room helpers")
-    else:
-        print("[helper_setup] No rooms configured, skipping room helpers")
-
+    created = asyncio.run(setup_helpers_async(prefix, rooms))
+    print(f"[helper_setup] Created {created} helpers")
     print("[helper_setup] Helper setup complete")
     return 0
 
