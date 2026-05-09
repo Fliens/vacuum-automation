@@ -503,13 +503,17 @@ class VacuumAutomation(hass.Hass):
 
     def _person_presence_summary(self, entity_id: str) -> dict:
         state = self._presence_state(entity_id)
-        distance_km = self._person_distance_to_home(entity_id, state)
+        distance_km = None
         travel_time_min = None
-        if distance_km is not None:
-            travel_time_min = 0 if distance_km <= 0 else max(
-                1,
-                round((distance_km / self._current_fallback_speed_kmh()) * 60),
-            )
+
+        # Only calculate distance if entity actually exists
+        if state not in ("unknown", "unavailable", ""):
+            distance_km = self._person_distance_to_home(entity_id, state)
+            if distance_km is not None:
+                travel_time_min = 0 if distance_km <= 0 else max(
+                    1,
+                    round((distance_km / self._current_fallback_speed_kmh()) * 60),
+                )
 
         return {
             "entity_id": entity_id,
@@ -521,6 +525,10 @@ class VacuumAutomation(hass.Hass):
     def _person_distance_to_home(self, entity_id: str, state: str) -> Optional[float]:
         if self._is_home_like_state(state):
             return 0.0
+
+        # Check if entity exists before querying attributes
+        if not self.entity_exists(entity_id):
+            return None
 
         person_state = self.get_state(entity_id, attribute="all")
         home_state = self.get_state(self.home_zone, attribute="all")
