@@ -2082,7 +2082,7 @@ def render_state_machine(summary: dict) -> str:
 def helper_state_is_missing(state_obj: Any) -> bool:
     if not state_obj or not isinstance(state_obj, dict):
         return True
-    return state_obj.get("state") in (None, "unavailable", "unknown")
+    return state_obj.get("state") in (None, "unavailable")
 
 
 def check_missing_helpers(summary: dict) -> List[str]:
