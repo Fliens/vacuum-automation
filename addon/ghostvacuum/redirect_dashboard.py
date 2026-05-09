@@ -2104,16 +2104,15 @@ def check_missing_helpers(summary: dict) -> List[str]:
 def render_missing_helpers_banner(summary: dict) -> str:
     """Render a warning banner if helper entities are missing."""
     # First check status sensor, then do our own check
-    missing = summary.get("status", {}).get("missing_helpers", [])
-    if missing:
+    status_missing = summary.get("status", {}).get("missing_helpers", [])
+    missing = status_missing
+    if status_missing:
         missing = [
             entity_id
-            for entity_id in missing
+            for entity_id in status_missing
             if helper_state_is_missing(state_for(entity_id))
         ]
-
-    # If status sensor hasn't detected missing helpers yet, check ourselves
-    if not missing:
+    else:
         missing = check_missing_helpers(summary)
 
     if not missing:
