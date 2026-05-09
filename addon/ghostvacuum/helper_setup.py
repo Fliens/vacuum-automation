@@ -38,11 +38,12 @@ SUPERVISOR_WS_API = "ws://supervisor/core/websocket"
 DEFAULT_HELPER_PREFIX = "vacuum_automation"
 
 # Helper definitions for the core automation
+# Note: Home Assistant input_text max length is limited to 255 characters
 CORE_INPUT_TEXT_HELPERS = [
     {
         "id": "state",
         "name": "Vacuum Automation State",
-        "max": 1024,
+        "max": 255,  # HA limit is 255, use file storage for larger state
         "initial": "{}",
     },
     {
@@ -54,7 +55,7 @@ CORE_INPUT_TEXT_HELPERS = [
     {
         "id": "selected_presence_entities",
         "name": "Vacuum Selected Presence Entities",
-        "max": 1024,
+        "max": 255,  # HA limit is 255
         "initial": "",
     },
     {
