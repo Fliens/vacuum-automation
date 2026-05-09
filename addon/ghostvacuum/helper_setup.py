@@ -39,28 +39,31 @@ DEFAULT_HELPER_PREFIX = "vacuum_automation"
 
 # Helper definitions for the core automation
 # Note: Home Assistant input_text max length is limited to 255 characters
+# IMPORTANT: The 'name' field determines the entity_id that HA generates.
+# HA slugifies the name to create the entity_id, so names must match what we expect.
+# Format: "Vacuum Automation <suffix>" -> input_*.vacuum_automation_<suffix>
 CORE_INPUT_TEXT_HELPERS = [
     {
         "id": "state",
-        "name": "Vacuum Automation State",
+        "name": "vacuum automation state",  # -> input_text.vacuum_automation_state
         "max": 255,  # HA limit is 255, use file storage for larger state
         "initial": "{}",
     },
     {
         "id": "one_time_room_override",
-        "name": "Vacuum One-Time Room Priority",
+        "name": "vacuum automation one time room override",  # -> input_text.vacuum_automation_one_time_room_override
         "max": 128,
         "initial": "",
     },
     {
         "id": "selected_presence_entities",
-        "name": "Vacuum Selected Presence Entities",
+        "name": "vacuum automation selected presence entities",  # -> input_text.vacuum_automation_selected_presence_entities
         "max": 255,  # HA limit is 255
         "initial": "",
     },
     {
         "id": "active_weekdays",
-        "name": "Vacuum Active Weekdays",
+        "name": "vacuum automation active weekdays",  # -> input_text.vacuum_automation_active_weekdays
         "max": 64,
         "initial": "mon,tue,wed,thu,fri,sat",
     },
@@ -69,37 +72,37 @@ CORE_INPUT_TEXT_HELPERS = [
 CORE_INPUT_BOOLEAN_HELPERS = [
     {
         "id": "enabled",
-        "name": "Vacuum Automation Enabled",
+        "name": "vacuum automation enabled",  # -> input_boolean.vacuum_automation_enabled
         "icon": "mdi:robot-vacuum",
         "initial": True,
     },
     {
         "id": "learning_enabled",
-        "name": "Vacuum Automation Learning Enabled",
+        "name": "vacuum automation learning enabled",  # -> input_boolean.vacuum_automation_learning_enabled
         "icon": "mdi:brain",
         "initial": True,
     },
     {
         "id": "home_override_enabled",
-        "name": "Vacuum Home Override Enabled",
+        "name": "vacuum automation home override enabled",  # -> input_boolean.vacuum_automation_home_override_enabled
         "icon": "mdi:home-map-marker",
         "initial": False,
     },
     {
         "id": "travel_mode_enabled",
-        "name": "Vacuum Travel Mode Enabled",
+        "name": "vacuum automation travel mode enabled",  # -> input_boolean.vacuum_automation_travel_mode_enabled
         "icon": "mdi:car",
         "initial": True,
     },
     {
         "id": "start_notifications_enabled",
-        "name": "Vacuum Start Notifications Enabled",
+        "name": "vacuum automation start notifications enabled",  # -> input_boolean.vacuum_automation_start_notifications_enabled
         "icon": "mdi:bell",
         "initial": False,
     },
     {
         "id": "return_summary_enabled",
-        "name": "Vacuum Return Summary Enabled",
+        "name": "vacuum automation return summary enabled",  # -> input_boolean.vacuum_automation_return_summary_enabled
         "icon": "mdi:clipboard-check",
         "initial": True,
     },
@@ -108,7 +111,7 @@ CORE_INPUT_BOOLEAN_HELPERS = [
 CORE_INPUT_NUMBER_HELPERS = [
     {
         "id": "start_hour",
-        "name": "Vacuum Automation Start Hour",
+        "name": "vacuum automation start hour",  # -> input_number.vacuum_automation_start_hour
         "min": 0,
         "max": 23,
         "step": 1,
@@ -117,7 +120,7 @@ CORE_INPUT_NUMBER_HELPERS = [
     },
     {
         "id": "end_hour",
-        "name": "Vacuum Automation End Hour",
+        "name": "vacuum automation end hour",  # -> input_number.vacuum_automation_end_hour
         "min": 1,
         "max": 23,
         "step": 1,
@@ -126,7 +129,7 @@ CORE_INPUT_NUMBER_HELPERS = [
     },
     {
         "id": "return_buffer",
-        "name": "Vacuum Automation Return Buffer",
+        "name": "vacuum automation return buffer",  # -> input_number.vacuum_automation_return_buffer
         "min": 0,
         "max": 30,
         "step": 1,
@@ -136,7 +139,7 @@ CORE_INPUT_NUMBER_HELPERS = [
     },
     {
         "id": "fallback_speed",
-        "name": "Vacuum Automation Fallback Speed",
+        "name": "vacuum automation fallback speed",  # -> input_number.vacuum_automation_fallback_speed
         "min": 5,
         "max": 130,
         "step": 1,
@@ -146,7 +149,7 @@ CORE_INPUT_NUMBER_HELPERS = [
     },
     {
         "id": "default_travel_time",
-        "name": "Vacuum Automation Default Travel Time",
+        "name": "vacuum automation default travel time",  # -> input_number.vacuum_automation_default_travel_time
         "min": 5,
         "max": 240,
         "step": 5,
@@ -156,7 +159,7 @@ CORE_INPUT_NUMBER_HELPERS = [
     },
     {
         "id": "home_latitude",
-        "name": "Vacuum Home Latitude",
+        "name": "vacuum automation home latitude",  # -> input_number.vacuum_automation_home_latitude
         "min": -90,
         "max": 90,
         "step": 0.0001,
@@ -165,7 +168,7 @@ CORE_INPUT_NUMBER_HELPERS = [
     },
     {
         "id": "home_longitude",
-        "name": "Vacuum Home Longitude",
+        "name": "vacuum automation home longitude",  # -> input_number.vacuum_automation_home_longitude
         "min": -180,
         "max": 180,
         "step": 0.0001,
@@ -174,7 +177,7 @@ CORE_INPUT_NUMBER_HELPERS = [
     },
     {
         "id": "travel_pause_radius",
-        "name": "Vacuum Travel Pause Radius",
+        "name": "vacuum automation travel pause radius",  # -> input_number.vacuum_automation_travel_pause_radius
         "min": 1,
         "max": 500,
         "step": 1,
@@ -184,7 +187,7 @@ CORE_INPUT_NUMBER_HELPERS = [
     },
     {
         "id": "max_distance_km",
-        "name": "Vacuum Max Distance",
+        "name": "vacuum automation max distance km",  # -> input_number.vacuum_automation_max_distance_km
         "min": 0,
         "max": 1000,
         "step": 1,
@@ -571,10 +574,11 @@ async def setup_helpers_async(prefix: str, rooms: List[dict]) -> int:
             room_icon = room.get("icon", "mdi:floor-plan")
 
             # Room enabled toggle
+            # Name format: "vacuum automation {room_id} enabled" -> input_boolean.vacuum_automation_{room_id}_enabled
             entity_id = f"input_boolean.{prefix}_{room_id}_enabled"
             if not entity_exists(entity_id):
                 result = await ws.create_input_boolean(
-                    name=f"Vacuum {room_name} Enabled",
+                    name=f"{prefix} {room_id} enabled",
                     icon=room_icon,
                 )
                 if result and result.get("success"):
@@ -585,10 +589,11 @@ async def setup_helpers_async(prefix: str, rooms: List[dict]) -> int:
                     print(f"[helper_setup] Failed to create {entity_id}: {error}")
 
             # Room weight
+            # Name format: "vacuum automation {room_id} weight" -> input_number.vacuum_automation_{room_id}_weight
             entity_id = f"input_number.{prefix}_{room_id}_weight"
             if not entity_exists(entity_id):
                 result = await ws.create_input_number(
-                    name=f"Vacuum {room_name} Weight",
+                    name=f"{prefix} {room_id} weight",
                     min_val=0.1,
                     max_val=3,
                     step=0.05,
@@ -603,10 +608,11 @@ async def setup_helpers_async(prefix: str, rooms: List[dict]) -> int:
                     print(f"[helper_setup] Failed to create {entity_id}: {error}")
 
             # Room interval
+            # Name format: "vacuum automation {room_id} interval h" -> input_number.vacuum_automation_{room_id}_interval_h
             entity_id = f"input_number.{prefix}_{room_id}_interval_h"
             if not entity_exists(entity_id):
                 result = await ws.create_input_number(
-                    name=f"Vacuum {room_name} Interval",
+                    name=f"{prefix} {room_id} interval h",
                     min_val=6,
                     max_val=168,
                     step=1,
@@ -622,10 +628,11 @@ async def setup_helpers_async(prefix: str, rooms: List[dict]) -> int:
                     print(f"[helper_setup] Failed to create {entity_id}: {error}")
 
             # Room duration
+            # Name format: "vacuum automation {room_id} duration min" -> input_number.vacuum_automation_{room_id}_duration_min
             entity_id = f"input_number.{prefix}_{room_id}_duration_min"
             if not entity_exists(entity_id):
                 result = await ws.create_input_number(
-                    name=f"Vacuum {room_name} Duration",
+                    name=f"{prefix} {room_id} duration min",
                     min_val=1,
                     max_val=120,
                     step=1,
@@ -740,7 +747,7 @@ async def ensure_helpers_exist_async(prefix: str, rooms: List[dict]) -> List[str
                     for room in rooms:
                         if suffix == f"{room['id']}_enabled":
                             result = await ws.create_input_boolean(
-                                name=f"Vacuum {room['name']} Enabled",
+                                name=f"{prefix} {room['id']} enabled",
                                 icon=room.get("icon", "mdi:floor-plan"),
                             )
                             break
@@ -765,7 +772,7 @@ async def ensure_helpers_exist_async(prefix: str, rooms: List[dict]) -> List[str
                         room_id = room["id"]
                         if suffix == f"{room_id}_weight":
                             result = await ws.create_input_number(
-                                name=f"Vacuum {room['name']} Weight",
+                                name=f"{prefix} {room_id} weight",
                                 min_val=0.1,
                                 max_val=3,
                                 step=0.05,
@@ -775,7 +782,7 @@ async def ensure_helpers_exist_async(prefix: str, rooms: List[dict]) -> List[str
                             break
                         elif suffix == f"{room_id}_interval_h":
                             result = await ws.create_input_number(
-                                name=f"Vacuum {room['name']} Interval",
+                                name=f"{prefix} {room_id} interval h",
                                 min_val=6,
                                 max_val=168,
                                 step=1,
@@ -786,7 +793,7 @@ async def ensure_helpers_exist_async(prefix: str, rooms: List[dict]) -> List[str
                             break
                         elif suffix == f"{room_id}_duration_min":
                             result = await ws.create_input_number(
-                                name=f"Vacuum {room['name']} Duration",
+                                name=f"{prefix} {room_id} duration min",
                                 min_val=1,
                                 max_val=120,
                                 step=1,
@@ -885,8 +892,9 @@ def main() -> int:
 
     if created > 0:
         # Give Home Assistant time to register the new entities
+        # 5 seconds is usually enough for HA to process and make entities available
         print("[helper_setup] Waiting for entities to be registered...")
-        time.sleep(3)
+        time.sleep(5)
 
     print("[helper_setup] Helper setup complete")
     return 0
